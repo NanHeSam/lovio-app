@@ -78,3 +78,60 @@ const { isEnabled } = await draftMode()
 // Handle async params in layouts/pages
 const params = await props.params
 const searchParams = await props.searchParams
+```
+
+## Database Management Rules
+
+### Migration Workflow
+
+1. **Always use descriptive migration names**:
+   ```bash
+   # Good
+   npm run db:generate -- --name add_user_preferences
+   npm run db:generate -- --name create_notification_system
+   
+   # Bad
+   npm run db:generate -- --name update
+   npm run db:generate -- --name fix
+   ```
+
+2. **Never create migration files manually**:
+   - Always use Drizzle commands to generate migrations
+   - If custom SQL is needed, generate the migration first, then edit the SQL
+   - This ensures proper migration tracking and journal updates
+
+3. **Migration Review Process**:
+   - Review generated SQL before applying migrations
+   - Test complex computed columns separately before including in migrations
+   - Verify foreign key constraints and CASCADE behavior
+   - Check for proper index creation
+
+4. **Development Workflow**:
+   ```bash
+   # Generate migration
+   npm run db:generate -- --name descriptive_feature_name
+   
+   # Review the generated SQL file
+   # Edit if necessary (custom SQL, complex constraints)
+   
+   # Apply migration
+   npm run db:migrate
+   
+   # Verify connection
+   npm run db:test
+   ```
+
+### Schema Design Principles
+
+- Enable required extensions (like `uuid-ossp`) in the first migration
+- Use proper CASCADE constraints for data integrity
+- Include audit timestamps (`created_at`, `updated_at`) on all tables
+- Use UUIDs for primary keys with `uuid_generate_v4()` default
+- Test computed columns separately before adding to migrations
+
+### Troubleshooting Guidelines
+
+- If migration fails, check PostgreSQL error codes and syntax
+- For computed column issues, consider application-level calculations
+- Use `npm run db:studio` for visual database exploration
+- Always test migrations in development before production

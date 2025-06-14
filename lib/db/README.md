@@ -6,6 +6,43 @@ This directory contains the database schema and utilities for the Lovio app, bui
 
 The database consists of three core tables for user and child management:
 
+## Migration Management
+
+### Current Migration Status
+- **Active Migration**: `0000_create_user_management_tables.sql`
+- **UUID Extension**: Enabled in the first migration for proper UUID generation
+- **Schema Version**: Single migration containing complete initial schema
+
+### Migration Workflow
+
+1. **Generate New Migration**:
+   ```bash
+   npm run db:generate -- --name descriptive_feature_name
+   ```
+
+2. **Review Generated SQL**:
+   - Check `drizzle/XXXX_feature_name.sql` for correctness
+   - Verify foreign key constraints and indexes
+   - Test complex computed columns separately if needed
+
+3. **Apply Migration**:
+   ```bash
+   npm run db:migrate
+   npm run db:test  # Verify connection
+   ```
+
+4. **Rollback Strategy**:
+   - Create reverse migration if needed
+   - Test rollback procedures in development
+
+### Migration Best Practices
+
+- **Always use descriptive names**: `add_user_preferences`, `create_notification_system`
+- **Never create migration files manually** - use Drizzle commands
+- **Test computed columns separately** before including in migrations
+- **Include proper CASCADE constraints** for data integrity
+- **Enable required extensions** (like `uuid-ossp`) in the first migration
+
 ### Tables
 
 #### `users`
