@@ -22,6 +22,13 @@
       "when": 1750395884771,
       "tag": "0002_limit_activity_types_to_sleep_feed_diaper",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1750396244432,
+      "tag": "0003_remove_email_make_id_external_reference",
+      "breakpoints": true
     }
   ]
 }

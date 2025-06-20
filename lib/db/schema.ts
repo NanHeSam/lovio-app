@@ -20,8 +20,7 @@ import {
 // ============================================================================
 
 export const users = pgTable('users', {
-  id: uuid('id').primaryKey().default(sql`uuid_generate_v4()`),
-  email: varchar('email', { length: 255 }).notNull().unique(),
+  id: uuid('id').primaryKey(), // External auth service user ID - no default generation
   fullName: varchar('full_name', { length: 255 }).notNull(),
   timezone: varchar('timezone', { length: 50 }).notNull().default('UTC'),
   avatarUrl: text('avatar_url'),
