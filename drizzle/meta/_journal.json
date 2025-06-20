@@ -8,6 +8,20 @@
       "when": 1749879639082,
       "tag": "0000_create_user_management_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1749881473489,
+      "tag": "0001_add_activities_system_with_consistent_timestamps",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1750395884771,
+      "tag": "0002_limit_activity_types_to_sleep_feed_diaper",
+      "breakpoints": true
     }
   ]
 }
