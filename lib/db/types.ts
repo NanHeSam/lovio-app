@@ -25,7 +25,8 @@ export type UserChildUpdate = Partial<Omit<NewUserChild, 'id' | 'createdAt'>>;
 // ============================================================================
 
 export type Gender = 'male' | 'female';
-export type UserRole = 'parent' | 'guardian' | 'caregiver' | 'family';
+export type UserRole = 'mom' | 'dad' | 'nanny' | 'extended-family' | 'other';
+export type ActivityType = 'sleep' | 'feed' | 'diaper';
 
 export interface UserPermissions {
   read: boolean;
@@ -34,8 +35,6 @@ export interface UserPermissions {
 }
 
 export interface UserPreferences {
-  theme?: 'light' | 'dark' | 'system';
-  language?: string;
   notifications?: {
     email?: boolean;
     push?: boolean;
@@ -58,22 +57,43 @@ export interface ChildMetadata {
     value: number;
     unit: 'kg' | 'lbs';
   }>;
-  medical?: {
-    allergies?: string[];
-    medications?: string[];
-    conditions?: string[];
-    doctor?: {
-      name: string;
-      phone?: string;
-      email?: string;
-    };
-  };
-  milestones?: Array<{
+  headCircumference?: Array<{
     date: string;
-    milestone: string;
-    notes?: string;
+    value: number;
+    unit: 'cm' | 'in';
   }>;
 }
+
+// Activity Details Types
+export interface SleepDetails {
+  type: 'sleep';
+}
+
+export interface NursingDetails {
+  type: 'nursing';
+  leftDuration?: number; // minutes
+  rightDuration?: number; // minutes
+  totalDuration?: number; // minutes
+}
+
+export interface BottleDetails {
+  type: 'bottle';
+  volume: number; // ml or oz
+  unit: 'ml' | 'oz';
+}
+
+export type FeedDetails = NursingDetails | BottleDetails;
+
+export interface DiaperDetails {
+  type: 'diaper';
+  contents: 'pee' | 'poo' | 'both';
+  volume: 'little' | 'medium' | 'large';
+  hasRash?: boolean;
+  pooColor?: 'yellow' | 'brown' | 'green' | 'black' | 'other';
+  pooTexture?: 'liquid' | 'soft' | 'formed' | 'hard';
+}
+
+export type ActivityDetails = SleepDetails | FeedDetails | DiaperDetails;
 
 // ============================================================================
 // QUERY RESULT TYPES

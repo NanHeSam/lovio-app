@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1749879639082,
-      "tag": "0000_create_user_management_tables",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1749881473489,
-      "tag": "0001_add_activities_system_with_consistent_timestamps",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1750395884771,
-      "tag": "0002_limit_activity_types_to_sleep_feed_diaper",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1750396244432,
-      "tag": "0003_remove_email_make_id_external_reference",
+      "when": 1750403269769,
+      "tag": "0000_initial_lovio_schema",
       "breakpoints": true
     }
   ]
