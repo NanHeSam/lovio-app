@@ -38,7 +38,7 @@ export const children = pgTable('children', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 },
-(t)=>[
+() => [
   check('gender', sql`gender IN ('male', 'female')`),
 ]);
 
@@ -102,11 +102,10 @@ export const activities = pgTable('activities', {
   // Timestamps
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => (
-  [
-    check('valid_times', sql`end_time IS NULL OR end_time >= start_time`),
-    check('valid_type', sql`type IN ('sleep', 'feed', 'diaper')`),
-]));
+}, () => [
+  check('valid_times', sql`end_time IS NULL OR end_time >= start_time`),
+  check('valid_type', sql`type IN ('sleep', 'feed', 'diaper')`),
+]);
 
 
 

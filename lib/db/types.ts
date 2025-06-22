@@ -1,5 +1,5 @@
 import { InferSelectModel, InferInsertModel } from 'drizzle-orm';
-import { users, children, userChildren } from './schema';
+import { users, children, userChildren, activities, aiInteractions } from './schema';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -19,6 +19,15 @@ export type ChildUpdate = Partial<Omit<NewChild, 'id' | 'createdAt'>>;
 export type UserChild = InferSelectModel<typeof userChildren>;
 export type NewUserChild = InferInsertModel<typeof userChildren>;
 export type UserChildUpdate = Partial<Omit<NewUserChild, 'id' | 'createdAt'>>;
+
+// Activity types
+export type Activity = InferSelectModel<typeof activities>;
+export type NewActivity = InferInsertModel<typeof activities>;
+export type ActivityUpdate = Partial<Omit<NewActivity, 'id' | 'createdAt'>>;
+
+// AI Interaction types
+export type AiInteraction = InferSelectModel<typeof aiInteractions>;
+export type NewAiInteraction = InferInsertModel<typeof aiInteractions>;
 
 // ============================================================================
 // ENUM TYPES
@@ -93,7 +102,7 @@ export interface DiaperDetails {
   pooTexture?: 'liquid' | 'soft' | 'formed' | 'hard';
 }
 
-export type ActivityDetails = SleepDetails | FeedDetails | DiaperDetails;
+export type ActivityDetails = SleepDetails | FeedDetails | DiaperDetails | null;
 
 // ============================================================================
 // QUERY RESULT TYPES
@@ -110,3 +119,39 @@ export type ChildWithUsers = Child & {
     user: User;
   }>;
 };
+
+export type ActivityWithChild = Activity & {
+  child: Child;
+  createdByUser: User;
+};
+
+// MCP Function Results
+export interface ActiveSession {
+  id: string;
+  type: ActivityType;
+  childId: string;
+  childName: string;
+  startTime: Date;
+  durationMinutes: number;
+}
+
+export interface DailySummary {
+  date: string;
+  childId: string;
+  childName: string;
+  totalSleep: number; // minutes
+  sleepSessions: number;
+  totalFeed: number; // minutes or count
+  feedSessions: number;
+  diaperChanges: number;
+}
+
+export interface RecentActivity {
+  id: string;
+  type: ActivityType;
+  childName: string;
+  startTime: Date;
+  endTime?: Date | null;
+  details: ActivityDetails | null;
+  ago: string; // "2 hours ago"
+}

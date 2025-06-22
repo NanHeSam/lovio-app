@@ -17,4 +17,6 @@ export { pool };
 
 // Export schema for use in other parts of the application
 export * from './schema';
+export * from './types';
+export * from './queries';
 
