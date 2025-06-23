@@ -74,15 +74,17 @@ export async function endActivity(params: {
   const { activityId, endTime = new Date(), details } = params;
   
   // Get the current activity to merge details
-  const [currentActivity] = await db
+  const currentActivities = await db
     .select()
     .from(activities)
     .where(eq(activities.id, activityId))
     .limit(1);
   
-  if (!currentActivity) {
+  if (currentActivities.length === 0) {
     throw new Error('Activity not found');
   }
+  
+  const currentActivity = currentActivities[0];
   
   if (currentActivity.endTime) {
     throw new Error('Activity session is already ended');
@@ -205,15 +207,17 @@ export async function getDailySummary(params: {
   endOfDay.setUTCHours(23, 59, 59, 999);
   
   // Get child name
-  const [child] = await db
+  const childResults = await db
     .select({ name: children.name })
     .from(children)
     .where(eq(children.id, childId))
     .limit(1);
   
-  if (!child) {
+  if (childResults.length === 0) {
     throw new Error('Child not found');
   }
+  
+  const child = childResults[0];
   
   // Get all activities for the day
   const dayActivities = await db
