@@ -9,12 +9,24 @@ scenarios:
   - name: "sleep_no_active_started_past"
     user_input: "baby started sleeping 20 min ago"
     current_state: { active_sessions: [] }
-    expected: { action: "startActivity", type: "sleep", start_time: "now-20min" }
+    expected: 
+      action: "startActivity"
+      type: "sleep"
+      time_parsing_required: true
+      time_offset_minutes: -20  # 20 minutes before device time
+      description: "Should start sleep session with past start time"
     
   - name: "sleep_no_active_completed_duration"
     user_input: "baby slept for 2 hours"
     current_state: { active_sessions: [] }
-    expected: { action: "logActivity", type: "sleep", duration: 120, completed: true }
+    expected: 
+      action: "logActivity"
+      type: "sleep"
+      duration: 120
+      time_parsing_required: true
+      time_offset_minutes: -120  # Started 2 hours ago
+      completed: true
+      description: "Should log completed sleep with calculated start time and duration"
     
   - name: "sleep_no_active_current"
     user_input: "baby is sleeping"
@@ -66,12 +78,25 @@ scenarios:
   - name: "feed_no_active_volume_past"
     user_input: "baby fed 120ml 20 minutes ago"
     current_state: { active_sessions: [] }
-    expected: { action: "logActivity", type: "feed", volume: 120, start_time: "now-20min", completed: true }
+    expected: 
+      action: "logActivity"
+      type: "feed"
+      volume: 120
+      feed_type: "bottle"
+      time_parsing_required: true
+      time_offset_minutes: -20  # 20 minutes before device time
+      instant_activity: true  # Same start and end time
+      description: "Should log completed bottle feeding in the past"
     
   - name: "feed_no_active_started_past"
     user_input: "baby started eating 15 minutes ago"
     current_state: { active_sessions: [] }
-    expected: { action: "startActivity", type: "feed", start_time: "now-15min" }
+    expected: 
+      action: "startActivity"
+      type: "feed"
+      time_parsing_required: true
+      time_offset_minutes: -15
+      description: "Should start feeding session with past start time"
     
   - name: "feed_no_active_current"
     user_input: "baby is eating"
@@ -128,27 +153,60 @@ scenarios:
   - name: "diaper_with_details"
     user_input: "diaper change - poop, medium amount, yellow"
     current_state: { active_sessions: [] }
-    expected: { 
-      action: "logActivity", 
-      type: "diaper", 
-      contents: "poo", 
-      volume: "medium", 
+    expected: 
+      action: "logActivity"
+      type: "diaper"
+      contents: "poo"
+      diaper_volume: "medium"
       poo_color: "yellow"
-    }
+      description: "Should log diaper with detailed information"
 
   # ============= TIME PARSING SCENARIOS =============
   
   - name: "time_relative_minutes"
     user_input: "baby started sleeping 45 minutes ago"
-    expected_time_parsing: { input: "45 minutes ago", output: "now-45min_utc" }
+    current_state: { active_sessions: [] }
+    expected: 
+      action: "startActivity"
+      type: "sleep"
+      time_parsing_required: true
+      time_offset_minutes: -45
+      
+  # NEW TEST: Very short feeding
+  - name: "feed_quick_snack"
+    user_input: "baby had a quick 30ml snack"
+    current_state: { active_sessions: [] }
+    expected:
+      action: "logActivity"
+      type: "feed"
+      volume: 30
+      feed_type: "bottle"
+      instant_activity: true
+      
+  # TEST: Edge case that might cause errors
+  - name: "test_error_case"
+    user_input: "baby started sleeping at an invalid time format"
+    current_state: { active_sessions: [] }
+    expected:
+      action: "startActivity"
+      type: "sleep"
+      time_parsing_required: true
     
   - name: "time_specific_hour"
     user_input: "baby fed at 2:30pm"
-    expected_time_parsing: { input: "2:30pm", output: "today_2:30pm_utc" }
+    current_state: { active_sessions: [] }
+    expected:
+      action: "logActivity"
+      type: "feed"
+      time_parsing_required: true
     
   - name: "time_duration"
     user_input: "baby slept for 3 hours"
-    expected_time_parsing: { duration: 180, start_calculated: "now-180min", end: "now" }
+    current_state: { active_sessions: [] }
+    expected:
+      action: "logActivity"
+      type: "sleep"
+      duration: 180
 
 # Key Principles:
 # 1. AI judges what's "recent" vs "stale" based on context

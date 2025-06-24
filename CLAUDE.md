@@ -21,6 +21,14 @@ Lovio is a modern family management application built with Next.js 15 and TypeSc
 - `npm run test:db` - Run database-specific tests
 - `npm run test:utils` - Run utility function tests
 
+### AI Agent Testing
+- `npm run test:agent all` - Run all AI agent scenarios with matrix view
+- `npm run test:agent list` - List all available test scenarios
+- `npm run test:agent run <scenario_name>` - Run specific scenario with storytelling
+- `npm run test:agent matrix` - Show test coverage categories overview
+- `npm run test:agent category <type>` - Run all tests for activity type (Sleep, Feed, Diaper, Time)
+- `npm run test:agent category <type>:<scenario>` - Run specific category subset
+
 ### Database Management
 - `npm run db:generate -- --name descriptive_name` - Generate new migration
 - `npm run db:migrate` - Apply migrations to database
@@ -59,10 +67,18 @@ The database follows a sophisticated user-child relationship model with an activ
 ```
 app/                 # Next.js App Router pages
 lib/
+  chat/             # AI agent logic and processing
   db/               # Database layer (schema, queries, types)
   utils.ts          # Shared utilities
 drizzle/            # Database migrations
-tests/              # Jest test suites organized by domain
+tests/              # Test suites organized by domain
+  chat-scenarios.yml          # AI agent test scenarios (YAML)
+  agent-test-utils.ts         # AI agent testing framework
+  agent-validation-test.ts    # Validation logic tests
+  database/                   # Jest database tests
+scripts/            # Development and testing scripts
+  seed-test-data.ts          # Test data seeding
+  test-agent.ts              # AI agent test CLI runner
 docs/lessons/       # Development insights and troubleshooting
 ```
 
@@ -82,8 +98,12 @@ docs/lessons/       # Development insights and troubleshooting
 - JSONB fields for flexible metadata with schema validation
 
 ### Testing Approach
-- Jest configuration supports both unit and integration tests
-- Database tests use isolated test environment with 30-second timeout
+- **Unit/Integration**: Jest configuration supports both unit and integration tests
+- **Database Tests**: Use isolated test environment with 30-second timeout
+- **AI Agent Tests**: YAML-based scenario testing with storytelling visualization
+  - Test coverage organized in 2D matrix (Activity Types × Scenario Types)
+  - Streaming response parsing with error detection and debugging
+  - Category-based test execution for focused validation
 - Test utilities in `tests/` directory for common database operations
 - Coverage collection from `app/`, `lib/`, and `components/` directories
 
@@ -112,3 +132,88 @@ docs/lessons/       # Development insights and troubleshooting
 - Use `user_children.permissions` JSONB field for granular access control
 - Default permissions: `{"read": true, "write": true, "admin": false}`
 - Validate permissions in queries and API routes
+
+## AI Agent Testing Framework
+
+The project includes a comprehensive testing framework for validating AI agent behavior in baby activity tracking scenarios.
+
+### Test Organization
+
+Tests are organized in a **2D matrix** for manageable coverage:
+
+**Activity Types (Rows):**
+- 🛌 **Sleep** - Sleep tracking scenarios
+- 🍼 **Feed** - Feeding tracking scenarios  
+- 👶 **Diaper** - Diaper change scenarios
+- 🕐 **Time Parsing** - Time parsing edge cases
+
+**Scenario Types (Columns):**
+- 🆕 **Clean Start** - No conflicts, straightforward cases
+- 🔄 **Smart Update** - Update recent active sessions
+- ⚠️ **Conflict Resolution** - Handle stale/cross-type conflicts  
+- 📝 **Always Simple** - Simple scenarios (diaper)
+- 🧪 **Edge Cases** - Complex time parsing scenarios
+
+### Test Files Structure
+
+```
+tests/
+  chat-scenarios.yml           # YAML test scenario definitions
+  agent-test-utils.ts         # Test framework and utilities
+  agent-validation-test.ts    # Validation logic tests
+scripts/
+  test-agent.ts              # CLI test runner
+```
+
+### Creating New Test Scenarios
+
+Add scenarios to `tests/chat-scenarios.yml`:
+
+```yaml
+- name: "scenario_name"
+  user_input: "what user would say"
+  current_state: 
+    active_sessions: []  # or active sessions to set up
+  expected:
+    action: "startActivity"        # Expected tool call
+    type: "sleep"                  # Activity type
+    time_parsing_required: true    # Should parseUserTime be called?
+    time_offset_minutes: -20       # Time offset from device time
+    description: "What should happen"
+```
+
+### Test Framework Features
+
+1. **Storytelling Visualization**: Tests display clear before/after stories
+2. **Streaming Response Parsing**: Handles AI SDK streaming protocol
+3. **Error Detection**: Automatically shows detailed errors when they occur
+4. **Category-Based Testing**: Run focused test subsets
+5. **Matrix Summary**: Visual overview of test coverage and results
+
+### Test Validation Protocol
+
+Each test validates the AI follows the 3-step protocol:
+1. **Step 1**: `checkActiveSessions` - Understand current state
+2. **Step 2**: `parseUserTime` - Parse time references when needed  
+3. **Step 3**: Correct action (`startActivity`, `logActivity`, `endActivity`, or `ask_clarification`)
+
+### Example Test Run
+
+```bash
+npm run test:agent run sleep_no_active_started_past
+```
+
+Shows:
+- 📖 **Story setup**: Current time, baby state, user input, expected behavior
+- 📊 **What happened**: Step-by-step AI actions with parameters and results
+- ✅/❌ **Validation**: Success/failure with detailed error explanations
+
+### Testing AI Agent Changes
+
+When modifying AI agent behavior:
+
+1. **Run focused tests**: `npm run test:agent category <ActivityType>`
+2. **Check matrix coverage**: `npm run test:agent all`
+3. **Fix specific scenarios**: `npm run test:agent run <scenario_name>`
+4. **Add new test cases**: Update `tests/chat-scenarios.yml`
+5. **Validate 3-step protocol**: Ensure checkActiveSessions → parseUserTime → action flow

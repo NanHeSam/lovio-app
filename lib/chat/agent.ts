@@ -11,7 +11,7 @@ import {
   logInstantActivity
 } from '@/lib/db/queries';
 import { db, activities } from '@/lib/db';
-import type { ActivityDetails } from '@/lib/db/types';
+import type { ActivityDetails, SleepDetails, DiaperDetails, BottleDetails, NursingDetails } from '@/lib/db/types';
 
 export interface ChatRequest {
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
@@ -34,7 +34,7 @@ export async function processChatRequest(request: ChatRequest) {
   const messagesWithContext = [contextMessage, ...messages];
 
   return await streamText({
-    model: openai('gpt-4o-mini'),
+    model: openai('gpt-4.1'),
     messages: messagesWithContext,
     maxSteps: 5,
     tools: {
@@ -229,7 +229,7 @@ export async function processChatRequest(request: ChatRequest) {
             }
 
             // Build activity details based on type
-            let details: ActivityDetails = { type: 'sleep' };
+            let details: ActivityDetails;
             
             if (type === 'feed') {
               if (feedType === 'bottle' && volume) {
@@ -237,34 +237,36 @@ export async function processChatRequest(request: ChatRequest) {
                   type: 'bottle',
                   volume,
                   unit: unit || 'ml'
-                };
+                } as BottleDetails;
               } else if (feedType === 'nursing') {
                 details = {
                   type: 'nursing',
                   ...(leftDuration && { leftDuration }),
                   ...(rightDuration && { rightDuration }),
                   ...(duration && { totalDuration: duration })
-                };
+                } as NursingDetails;
               } else if (volume) {
                 details = {
                   type: 'bottle',
                   volume,
                   unit: unit || 'ml'
-                };
+                } as BottleDetails;
               } else {
-                details = { type: 'nursing' };
+                details = { type: 'nursing' } as NursingDetails;
               }
             } else if (type === 'diaper') {
               details = {
                 type: 'diaper',
-                contents: contents || 'pee',
+                contents: (contents as 'pee' | 'poo' | 'both') || 'pee',
                 ...(diaperVolume && { volume: diaperVolume }),
                 ...(hasRash !== undefined && { hasRash }),
                 ...(pooColor && { pooColor }),
                 ...(pooTexture && { pooTexture })
-              };
+              } as DiaperDetails;
             } else if (type === 'sleep') {
-              details = { type: 'sleep' };
+              details = { type: 'sleep' } as SleepDetails;
+            } else {
+              details = null;
             }
 
             // For diaper changes, always use instant activity (same start/end time)
