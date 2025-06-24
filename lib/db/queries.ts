@@ -91,7 +91,7 @@ export async function endActivity(params: {
   }
   
   // Merge details if provided
-  const mergedDetails = details ? { ...currentActivity.details, ...details } : currentActivity.details;
+  const mergedDetails = details ? { ...currentActivity.details, ...details } as ActivityDetails : currentActivity.details;
   
   const [updatedActivity] = await db
     .update(activities)

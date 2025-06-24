@@ -1,0 +1,158 @@
+# Chat Bot Test Scenarios - Intelligent Context-Aware Matrix
+# Framework: AI judges staleness, asks for conflicts, diaper always new
+
+scenarios:
+  
+  # ============= SLEEP SCENARIOS =============
+  
+  # No Active Sessions - Clean Cases
+  - name: "sleep_no_active_started_past"
+    user_input: "baby started sleeping 20 min ago"
+    current_state: { active_sessions: [] }
+    expected: { action: "startActivity", type: "sleep", start_time: "now-20min" }
+    
+  - name: "sleep_no_active_completed_duration"
+    user_input: "baby slept for 2 hours"
+    current_state: { active_sessions: [] }
+    expected: { action: "logActivity", type: "sleep", duration: 120, completed: true }
+    
+  - name: "sleep_no_active_current"
+    user_input: "baby is sleeping"
+    current_state: { active_sessions: [] }
+    expected: { action: "startActivity", type: "sleep", start_time: "now" }
+
+  # Recent Active Sleep - Smart Updates
+  - name: "sleep_recent_active_duration_update"
+    user_input: "baby slept for 2 hours"
+    current_state: { 
+      active_sessions: [{ type: "sleep", id: "sleep1", started: "30min_ago" }]
+    }
+    expected: { action: "endActivity", activity_id: "sleep1", end_time: "calculated" }
+    description: "Should end existing session with calculated end time based on duration"
+    
+  - name: "sleep_recent_active_woke_up"
+    user_input: "baby woke up"
+    current_state: { 
+      active_sessions: [{ type: "sleep", id: "sleep1", started: "45min_ago" }]
+    }
+    expected: { action: "endActivity", activity_id: "sleep1", end_time: "now" }
+
+  # Stale Active Sleep - Conflict Resolution
+  - name: "sleep_stale_active_new_start"
+    user_input: "baby started sleeping 20 min ago"
+    current_state: { 
+      active_sessions: [{ type: "sleep", id: "sleep_old", started: "6hours_ago" }]
+    }
+    expected: { action: "ask_clarification", message: "There's an old sleep session from 6 hours ago. Should I end it first?" }
+    
+  - name: "sleep_stale_active_duration"
+    user_input: "baby slept for 1 hour"
+    current_state: { 
+      active_sessions: [{ type: "sleep", id: "sleep_old", started: "4hours_ago" }]
+    }
+    expected: { action: "ask_clarification", message: "Should this be a new sleep entry or update the 4-hour-old session?" }
+
+  # Cross-Type Conflicts
+  - name: "sleep_vs_active_feed"
+    user_input: "baby is sleeping"
+    current_state: { 
+      active_sessions: [{ type: "feed", id: "feed1", started: "10min_ago" }]
+    }
+    expected: { action: "ask_clarification", message: "Baby has an active feeding session. Should I end it to start sleep?" }
+
+  # ============= FEED SCENARIOS =============
+  
+  # No Active Sessions
+  - name: "feed_no_active_volume_past"
+    user_input: "baby fed 120ml 20 minutes ago"
+    current_state: { active_sessions: [] }
+    expected: { action: "logActivity", type: "feed", volume: 120, start_time: "now-20min", completed: true }
+    
+  - name: "feed_no_active_started_past"
+    user_input: "baby started eating 15 minutes ago"
+    current_state: { active_sessions: [] }
+    expected: { action: "startActivity", type: "feed", start_time: "now-15min" }
+    
+  - name: "feed_no_active_current"
+    user_input: "baby is eating"
+    current_state: { active_sessions: [] }
+    expected: { action: "startActivity", type: "feed", start_time: "now" }
+
+  # Recent Active Feed - Smart Updates  
+  - name: "feed_recent_active_volume_complete"
+    user_input: "baby drank 100ml"
+    current_state: { 
+      active_sessions: [{ type: "feed", id: "feed1", started: "10min_ago" }]
+    }
+    expected: { action: "endActivity", activity_id: "feed1", details: { volume: 100, type: "bottle" } }
+    
+  - name: "feed_recent_active_finished"
+    user_input: "baby finished eating"
+    current_state: { 
+      active_sessions: [{ type: "feed", id: "feed1", started: "15min_ago" }]
+    }
+    expected: { action: "endActivity", activity_id: "feed1", end_time: "now" }
+
+  # Stale Active Feed - Conflicts
+  - name: "feed_stale_active_new_volume"
+    user_input: "baby fed 150ml 30 minutes ago"
+    current_state: { 
+      active_sessions: [{ type: "feed", id: "feed_old", started: "3hours_ago" }]
+    }
+    expected: { action: "ask_clarification", message: "There's an old feeding session. Should I end it and log this as separate feeding?" }
+
+  # Cross-Type Conflicts
+  - name: "feed_vs_active_sleep"
+    user_input: "baby started eating"
+    current_state: { 
+      active_sessions: [{ type: "sleep", id: "sleep1", started: "30min_ago" }]
+    }
+    expected: { action: "ask_clarification", message: "Baby has an active sleep session. Should I end it to start feeding?" }
+
+  # ============= DIAPER SCENARIOS =============
+  
+  # Always New Entries (Simple)
+  - name: "diaper_no_active"
+    user_input: "diaper change"
+    current_state: { active_sessions: [] }
+    expected: { action: "logActivity", type: "diaper", contents: "pee", start_time: "now" }
+    
+  - name: "diaper_with_active_sessions"
+    user_input: "changed diaper 15 minutes ago"
+    current_state: { 
+      active_sessions: [{ type: "sleep", id: "sleep1", started: "1hour_ago" }]
+    }
+    expected: { action: "logActivity", type: "diaper", start_time: "now-15min", no_conflicts: true }
+    description: "Diaper changes don't conflict with other activities"
+    
+  - name: "diaper_with_details"
+    user_input: "diaper change - poop, medium amount, yellow"
+    current_state: { active_sessions: [] }
+    expected: { 
+      action: "logActivity", 
+      type: "diaper", 
+      contents: "poo", 
+      volume: "medium", 
+      poo_color: "yellow"
+    }
+
+  # ============= TIME PARSING SCENARIOS =============
+  
+  - name: "time_relative_minutes"
+    user_input: "baby started sleeping 45 minutes ago"
+    expected_time_parsing: { input: "45 minutes ago", output: "now-45min_utc" }
+    
+  - name: "time_specific_hour"
+    user_input: "baby fed at 2:30pm"
+    expected_time_parsing: { input: "2:30pm", output: "today_2:30pm_utc" }
+    
+  - name: "time_duration"
+    user_input: "baby slept for 3 hours"
+    expected_time_parsing: { duration: 180, start_calculated: "now-180min", end: "now" }
+
+# Key Principles:
+# 1. AI judges what's "recent" vs "stale" based on context
+# 2. Recent same-type sessions → smart updates
+# 3. Stale or different-type sessions → ask for clarification  
+# 4. Diaper changes never conflict, always create new entries
+# 5. Always parse time first, then decide action based on current state
