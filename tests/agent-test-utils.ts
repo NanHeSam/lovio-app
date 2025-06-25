@@ -325,17 +325,13 @@ export function validateToolCalls(
   // Validate step by step
   const validations: string[] = [];
   
-  // 1. Check if checkActiveSessions was called first
-  if (actualToolCalls.length === 0) {
+  // 1. Check if any tool calls were made when expected
+  if (actualToolCalls.length === 0 && expectedAction !== 'ask_clarification') {
     return {
       passed: false,
       message: 'No tool calls were made',
       details: { expectedTools, actualTools: actualToolCalls }
     };
-  }
-  
-  if (actualToolCalls[0].name !== 'checkActiveSessions') {
-    validations.push('Expected checkActiveSessions to be called first');
   }
   
   // 2. Check for time parsing when needed
@@ -389,9 +385,7 @@ export function validateToolCalls(
 
 // Get expected tool pattern for an action
 function getExpectedToolPattern(action: string, scenario: TestScenario): ToolCallValidation[] {
-  const tools: ToolCallValidation[] = [
-    { name: 'checkActiveSessions', required: true }
-  ];
+  const tools: ToolCallValidation[] = [];
   
   // Add time parsing if needed
   if (scenario.expected.time_parsing_required) {

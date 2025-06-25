@@ -23,7 +23,7 @@ function initializeDb() {
 export const db = new Proxy({} as ReturnType<typeof drizzle>, {
   get(target, prop) {
     const actualDb = initializeDb();
-    return (actualDb as any)[prop];
+    return actualDb[prop as keyof typeof actualDb];
   }
 });
 

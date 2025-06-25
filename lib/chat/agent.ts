@@ -23,12 +23,17 @@ export interface ChatRequest {
 export async function processChatRequest(request: ChatRequest) {
   const { messages, userId, childId, deviceTime } = request;
 
-  // Extract timezone and local time from deviceTime (for future use)
+  // Pre-fetch active sessions to include in context (save tokens)
+  const activeSessions = await getActiveSessions(childId ? { childId } : undefined);
   
   // Insert context as first user message for better prompt caching
   const contextMessage = {
     role: 'user' as const,
-    content: `Context: Device time is ${deviceTime}, User ID: ${userId}, Child ID: ${childId}`
+    content: `Context: Device time is ${deviceTime}, User ID: ${userId}, Child ID: ${childId}
+
+Current Active Sessions: ${activeSessions.length > 0 ? 
+  activeSessions.map(s => `${s.type} (started: ${s.startTime}, id: ${s.id})`).join(', ') : 
+  'None'}`
   };
 
   const messagesWithContext = [contextMessage, ...messages];
@@ -38,24 +43,6 @@ export async function processChatRequest(request: ChatRequest) {
     messages: messagesWithContext,
     maxSteps: 5,
     tools: {
-      checkActiveSessions: tool({
-        description: 'Check if baby is currently sleeping or feeding',
-        parameters: z.object({}),
-        execute: async () => {
-          try {
-            const sessions = await getActiveSessions(childId ? { childId } : undefined);
-            return {
-              activeSessions: sessions,
-              totalActiveSessions: sessions.length,
-              sleepingSessions: sessions.filter(s => s.type === 'sleep'),
-              feedingSessions: sessions.filter(s => s.type === 'feed')
-            };
-          } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Unknown error' };
-          }
-        },
-      }),
-
       parseUserTime: tool({
         description: 'Convert AI-determined time to UTC for database storage. Call this when user mentions any time reference.',
         parameters: z.object({
@@ -303,17 +290,15 @@ export async function processChatRequest(request: ChatRequest) {
         },
       }),
     },
-    system: `You are a smart baby tracking assistant. Follow this intelligent 3-step process:
+    system: `You are a smart baby tracking assistant. Follow this intelligent 2-step process:
 
-STEP 1: Check current state
-- Always call checkActiveSessions first to understand active sessions
-
-STEP 2: Parse time if mentioned
+STEP 1: Parse time if mentioned
 - If user mentions any time, determine what time they mean using device time context
-- Call parseUserTime with your calculated time in ISO format with timezone
-- Use the returned UTC time for subsequent logging actions
+- Current active sessions are already provided in the context message
 
-STEP 3: Choose smart action based on context
+STEP 2: Choose smart action based on context and active sessions
+- Call parseUserTime with your calculated time in ISO format with timezone if time mentioned
+- Use the returned UTC time for subsequent logging actions
 RECENT active same type (judge reasonableness):
 - "slept 2 hours" + recent sleep → endActivity with calculated end time
 - "finished eating" + recent feed → endActivity 

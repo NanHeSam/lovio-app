@@ -160,10 +160,16 @@ Tests are organized in a **2D matrix** for manageable coverage:
 tests/
   chat-scenarios.yml           # YAML test scenario definitions
   agent-test-utils.ts         # Test framework and utilities
-  agent-validation-test.ts    # Validation logic tests
+  agent-validation-test.ts    # Tests validation logic with mock data
 scripts/
-  test-agent.ts              # CLI test runner
+  test-agent.ts              # CLI runner for live AI agent tests
 ```
+
+### Test File Purposes
+
+- **agent-validation-test.ts**: Tests the validation logic itself using mock tool calls. Verifies that the `validateToolCalls` function correctly identifies passing/failing scenarios without making real AI calls.
+
+- **test-agent.ts**: CLI interface for running actual AI agent tests against real scenarios. Makes live AI API calls and uses the validation logic to check real AI responses. Provides commands for listing, running, and categorizing tests.
 
 ### Creating New Test Scenarios
 
