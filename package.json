@@ -12,7 +12,7 @@
     "test:coverage": "jest --coverage",
     "test:db": "jest tests/database",
     "test:utils": "jest tests/utils",
-    "test:agent": "DATABASE_URL=\"postgresql://lovio_user:lovio_password@localhost:5432/lovio_db\" tsx scripts/test-agent.ts",
+    "test:agent": "tsx scripts/test-agent.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

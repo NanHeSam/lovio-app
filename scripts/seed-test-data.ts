@@ -19,7 +19,7 @@ async function seedTestData() {
     await db.insert(users).values({
       id: TEST_USER_ID,
       fullName: 'Test Parent',
-      timezone: 'America/New_York',
+      timezone: 'America/Los_Angeles',
       preferences: {
         notifications: {
           email: true,

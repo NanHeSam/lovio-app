@@ -69,7 +69,7 @@ Each test checks the AI follows the **3-step protocol**:
 
 ## Test Output Example
 
-```
+```text
 📖 Story: sleep no active started past
 🕐 Current time: 3:30 PM EST
 📊 Baby's current state: No active sessions

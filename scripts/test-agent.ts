@@ -1,9 +1,9 @@
 #!/usr/bin/env npx tsx
 
+// Load environment variables FIRST - before any other imports
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
-// Load environment variables - try multiple paths
 const envPaths = [
   resolve(process.cwd(), '.env.local'),
   resolve(__dirname, '../.env.local'),
@@ -13,10 +13,6 @@ for (const envPath of envPaths) {
   config({ path: envPath });
 }
 
-// Set default if not found (for testing)
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = 'postgresql://lovio_user:lovio_password@localhost:5432/lovio_db';
-}
 
 import { runSingleScenario, runAllScenarios, runTestCategory, loadTestScenarios } from '../tests/agent-test-utils';
 

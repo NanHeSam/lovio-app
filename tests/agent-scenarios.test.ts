@@ -1,48 +1,17 @@
-import fs from 'fs';
-import yaml from 'js-yaml';
-import path from 'path';
+import { 
+  TestScenario, 
+  TestSuite, 
+  TEST_USER_ID, 
+  TEST_CHILD_ID, 
+  TEST_DEVICE_TIME,
+  loadTestScenarios,
+  parseTestTime,
+  cleanupDatabase,
+  setupActiveSession
+} from './agent-test-utils';
 import { processChatRequest } from '@/lib/chat/agent';
 import { db, activities, users, children, userChildren } from '@/lib/db';
 import { eq } from 'drizzle-orm';
-
-// Load js-yaml if not available
-const yamlParse = yaml.load;
-
-// Types for our test scenarios
-interface TestScenario {
-  name: string;
-  user_input: string;
-  current_state: {
-    active_sessions: Array<{
-      type: 'sleep' | 'feed' | 'diaper';
-      id: string;
-      started: string;
-    }>;
-  };
-  expected: {
-    action: string;
-    type?: string;
-    start_time?: string;
-    end_time?: string;
-    duration?: number;
-    activity_id?: string;
-    volume?: number;
-    contents?: string;
-    message?: string;
-    no_conflicts?: boolean;
-    completed?: boolean;
-  };
-  description?: string;
-}
-
-interface TestSuite {
-  scenarios: TestScenario[];
-}
-
-// Test constants
-const TEST_USER_ID = '550e8400-e29b-41d4-a716-446655440000';
-const TEST_CHILD_ID = '550e8400-e29b-41d4-a716-446655440001';
-const TEST_DEVICE_TIME = '2025-01-03T15:30:00-05:00'; // 3:30 PM EST
 
 // Mock the processChatRequest function to capture tool calls
 async function testAgentWithMocks(userInput: string, activeSessionIds: string[] = []): Promise<{
@@ -84,44 +53,6 @@ async function testAgentWithMocks(userInput: string, activeSessionIds: string[] 
   }
 }
 
-// Setup active sessions in database for testing
-async function setupActiveSession(sessionData: { type: string; id: string; started: string }): Promise<string> {
-  const startTime = parseTestTime(sessionData.started);
-  
-  const [activity] = await db.insert(activities).values({
-    id: sessionData.id,
-    childId: TEST_CHILD_ID,
-    createdBy: TEST_USER_ID,
-    type: sessionData.type as 'sleep' | 'feed' | 'diaper',
-    startTime,
-    endTime: null, // Active session
-    details: { type: sessionData.type }
-  }).returning();
-
-  return activity.id;
-}
-
-// Parse test time strings like "30min_ago", "6hours_ago"
-function parseTestTime(timeStr: string): Date {
-  const deviceTime = new Date(TEST_DEVICE_TIME);
-  
-  if (timeStr === 'now') return deviceTime;
-  
-  const match = timeStr.match(/(\d+)(min|hour)s?_ago/);
-  if (match) {
-    const amount = parseInt(match[1]);
-    const unit = match[2];
-    const minutes = unit === 'hour' ? amount * 60 : amount;
-    return new Date(deviceTime.getTime() - minutes * 60000);
-  }
-  
-  throw new Error(`Unknown test time format: ${timeStr}`);
-}
-
-// Clean up database after each test
-async function cleanupDatabase() {
-  await db.delete(activities).where(eq(activities.childId, TEST_CHILD_ID));
-}
 
 // Validate tool call against expected result
 function validateExpectation(toolCalls: any[], expected: any, finalMessage: string): { 
@@ -198,16 +129,6 @@ function validateExpectation(toolCalls: any[], expected: any, finalMessage: stri
   };
 }
 
-// Load test scenarios from YAML
-function loadTestScenarios(): TestSuite {
-  const yamlPath = path.join(__dirname, 'chat-scenarios.yml');
-  if (!fs.existsSync(yamlPath)) {
-    throw new Error(`Test scenarios file not found: ${yamlPath}`);
-  }
-  
-  const yamlContent = fs.readFileSync(yamlPath, 'utf8');
-  return yamlParse(yamlContent) as TestSuite;
-}
 
 // Individual test runner for a single scenario
 export async function runSingleScenario(scenarioName: string): Promise<{

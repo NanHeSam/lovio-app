@@ -8,8 +8,18 @@ config({ path: resolve(process.cwd(), '.env.local') });
 
 import { validateToolCalls, loadTestScenarios, type TestScenario } from './agent-test-utils';
 
+type MockToolCall = {
+  name: string;
+  parameters: Record<string, any>;
+  result: Record<string, any>;
+};
+
+type MockToolCallExamples = {
+  [key: string]: MockToolCall[];
+};
+
 // Mock tool call examples for testing validation logic
-const mockToolCallExamples = {
+const mockToolCallExamples: MockToolCallExamples = {
   sleep_no_active_started_past: [
     { name: 'checkActiveSessions', parameters: {}, result: { activeSessions: [], totalActiveSessions: 0 } },
     { name: 'parseUserTime', parameters: { targetTime: '2025-01-03T15:10:00-05:00', reasoning: '20 minutes before device time' }, result: { utcTime: '2025-01-03T20:10:00.000Z' } },
@@ -66,7 +76,7 @@ async function testValidationLogic() {
     const scenario = testSuite.scenarios.find(s => s.name === testName);
     if (!scenario) continue;
     
-    const mockToolCalls = (mockToolCallExamples as any)[testName];
+    const mockToolCalls = mockToolCallExamples[testName];
     if (!mockToolCalls) continue;
     
     console.log(`✅ Testing: ${scenario.name}`);
@@ -108,7 +118,7 @@ async function testValidationLogic() {
     const scenario = testSuite.scenarios.find(s => s.name === wrongTest.scenario);
     if (!scenario) continue;
     
-    const mockToolCalls = (mockToolCallExamples as any)[wrongTest.name];
+    const mockToolCalls = mockToolCallExamples[wrongTest.name];
     if (!mockToolCalls) continue;
     
     console.log(`❌ Testing: ${wrongTest.name} (${wrongTest.error})`);
