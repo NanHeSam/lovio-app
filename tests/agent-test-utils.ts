@@ -440,11 +440,14 @@ function validateActionParameters(actionCall: any, scenario: TestScenario): stri
       }
       break;
       
-    case 'endActivity':
-      // For endActivity, don't validate specific activity IDs since they're auto-generated UUIDs
-      // Just ensure an activityId is provided
+    case 'updateActivity':
+      // For updateActivity (including ending), ensure activityId is provided
       if (!parameters.activityId) {
         return 'Expected activityId parameter';
+      }
+      // If this is meant to end an activity, ensure endTimeUTC is provided
+      if ((scenario.expected as any).end_time && !parameters.endTimeUTC) {
+        return 'Expected endTimeUTC to end activity';
       }
       break;
   }
@@ -497,7 +500,7 @@ function printScenarioStory(scenario: TestScenario) {
   
   const actionEmoji = {
     'startActivity': '▶️ START',
-    'endActivity': '⏹️ END', 
+    'updateActivity': '🔧 UPDATE', 
     'logActivity': '📝 LOG',
     'ask_clarification': '❓ ASK'
   }[expected.action] || '🔧';
@@ -530,7 +533,7 @@ function printResultStory(
       'checkActiveSessions': '🔍',
       'parseUserTime': '🕐',
       'startActivity': '▶️',
-      'endActivity': '⏹️',
+      'updateActivity': '🔧',
       'logActivity': '📝',
       'getDailySummary': '📈',
       'getRecentActivities': '📜'
@@ -571,7 +574,7 @@ function printResultStory(
       }
     }
     
-    if (call.name === 'endActivity') {
+    if (call.name === 'updateActivity') {
       console.log(`      🔗 Activity ID: ${call.parameters.activityId?.substring(0, 8)}...`);
     }
   });
