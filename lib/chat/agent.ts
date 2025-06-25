@@ -8,7 +8,7 @@ import {
   getRecentActivities, 
   getLastActivity,
   startActivity,
-  endActivity,
+  updateActivity,
   logInstantActivity
 } from '@/lib/db/queries';
 import { db, activities } from '@/lib/db';
@@ -157,24 +157,6 @@ Current Active Sessions: ${activeSessions.length > 0 ?
         },
       }),
 
-      endActivity: tool({
-        description: 'End an active activity session',
-        parameters: z.object({
-          activityId: z.string().describe('ID of the activity to end'),
-          endTimeUTC: z.string().optional().describe('End time in UTC ISO format'),
-        }),
-        execute: async ({ activityId, endTimeUTC }) => {
-          try {
-            const activity = await endActivity({
-              activityId,
-              ...(endTimeUTC && { endTime: new Date(endTimeUTC) })
-            });
-            return { success: true, activity };
-          } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Unknown error' };
-          }
-        },
-      }),
 
       logActivity: tool({
         description: 'Log a completed activity (sleep, feed, or diaper) with details and optional duration',
@@ -297,6 +279,85 @@ Current Active Sessions: ${activeSessions.length > 0 ?
           }
         },
       }),
+
+      updateActivity: tool({
+        description: 'Update an existing activity (modify start time, end time, or details)',
+        parameters: z.object({
+          activityId: z.string().describe('ID of the activity to update'),
+          startTimeUTC: z.string().optional().describe('New start time in UTC ISO format from parseUserTime'),
+          endTimeUTC: z.string().optional().describe('New end time in UTC ISO format from parseUserTime'),
+          
+          // Feed-specific details
+          feedType: z.enum(['bottle', 'nursing']).optional().describe('Type of feeding'),
+          volume: z.number().optional().describe('Volume in ml for bottle feeding'),
+          unit: z.enum(['ml', 'oz']).optional().describe('Unit for volume, defaults to ml'),
+          leftDuration: z.number().optional().describe('Left breast nursing duration in minutes'),
+          rightDuration: z.number().optional().describe('Right breast nursing duration in minutes'),
+          
+          // Diaper-specific details
+          contents: z.enum(['pee', 'poo', 'both']).optional().describe('Contents of the diaper'),
+          diaperVolume: z.enum(['little', 'medium', 'large']).optional().describe('Volume/amount for diaper'),
+          hasRash: z.boolean().optional().describe('Whether there was a rash'),
+          pooColor: z.enum(['yellow', 'brown', 'green', 'black', 'other']).optional().describe('Color of poo if present'),
+          pooTexture: z.enum(['liquid', 'soft', 'formed', 'hard']).optional().describe('Texture of poo if present'),
+        }),
+        execute: async ({ 
+          activityId, startTimeUTC, endTimeUTC,
+          feedType, volume, unit, leftDuration, rightDuration,
+          contents, diaperVolume, hasRash, pooColor, pooTexture 
+        }) => {
+          try {
+            // Build details object if any details are provided
+            let details: ActivityDetails | undefined;
+            
+            // Check if we have feed details
+            if (feedType || volume || leftDuration || rightDuration) {
+              if (feedType === 'bottle' && volume) {
+                details = {
+                  type: 'bottle',
+                  volume,
+                  unit: unit || 'ml'
+                } as BottleDetails;
+              } else if (feedType === 'nursing') {
+                details = {
+                  type: 'nursing',
+                  ...(leftDuration && { leftDuration }),
+                  ...(rightDuration && { rightDuration })
+                } as NursingDetails;
+              } else if (volume) {
+                details = {
+                  type: 'bottle',
+                  volume,
+                  unit: unit || 'ml'
+                } as BottleDetails;
+              }
+            }
+            
+            // Check if we have diaper details
+            if (contents || diaperVolume || hasRash !== undefined || pooColor || pooTexture) {
+              details = {
+                type: 'diaper',
+                contents: (contents as 'pee' | 'poo' | 'both') || 'pee',
+                ...(diaperVolume && { volume: diaperVolume }),
+                ...(hasRash !== undefined && { hasRash }),
+                ...(pooColor && { pooColor }),
+                ...(pooTexture && { pooTexture })
+              } as DiaperDetails;
+            }
+
+            const activity = await updateActivity({
+              activityId,
+              ...(startTimeUTC && { startTime: new Date(startTimeUTC) }),
+              ...(endTimeUTC && { endTime: new Date(endTimeUTC) }),
+              ...(details && { details })
+            });
+            
+            return { success: true, activity };
+          } catch (error) {
+            return { error: error instanceof Error ? error.message : 'Unknown error' };
+          }
+        },
+      }),
     },
     system: `You are a smart baby tracking assistant. Follow this intelligent 2-step process:
 
@@ -308,9 +369,10 @@ STEP 2: Choose smart action based on context and active sessions
 - Call parseUserTime with your calculated time in ISO format with timezone if time mentioned
 - Use the returned UTC time for subsequent logging actions
 RECENT active same type (judge reasonableness):
-- "slept 2 hours" + recent sleep → endActivity with calculated end time
-- "finished eating" + recent feed → endActivity 
-- "started sleeping" + recent sleep → ask if they want to update start time
+- "slept 2 hours" + recent sleep → updateActivity with calculated endTimeUTC
+- "finished eating" + recent feed → updateActivity with endTimeUTC (now)
+- "started sleeping" + recent sleep → offer to updateActivity with new start time
+- User confirms update → updateActivity with new startTimeUTC
 
 STALE active same type (use judgment):
 - "started sleeping" + old sleep → ask: "End old session first?"
@@ -328,6 +390,12 @@ NO active sessions:
 - "X for Y time" → logActivity with duration  
 - "X Y ago" → logActivity at past time
 - "is X-ing" → startActivity now
+
+UPDATE scenarios (replaces old endActivity tool):
+- When user wants to modify existing activity times or details
+- Use updateActivity tool with activityId from active sessions
+- Can update startTime, endTime, or activity-specific details
+- To END activities: updateActivity with endTimeUTC parameter
 
 Key principles:
 - Use intelligent judgment for "recent" vs "stale" 

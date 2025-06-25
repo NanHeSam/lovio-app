@@ -140,7 +140,7 @@ docs/lessons/       # Development insights and troubleshooting
 
 ## AI Agent Testing Framework
 
-The project includes a comprehensive testing framework for validating AI agent behavior in baby activity tracking scenarios.
+The project includes a comprehensive testing framework for validating AI agent behavior in baby activity tracking scenarios. The AI agent supports creating, ending, and updating activities with intelligent conflict resolution.
 
 ### Test Organization
 
