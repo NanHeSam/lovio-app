@@ -110,7 +110,12 @@ docs/lessons/       # Development insights and troubleshooting
 ### Environment Setup
 - Docker Compose provides local PostgreSQL (`docker-compose up -d`)
 - Database connection: `postgresql://lovio_user:lovio_password@localhost:5432/lovio_db`
-- Required environment variables in `.env.local`
+- Required environment variables in `.env.local`:
+  - `DATABASE_URL` - PostgreSQL connection string
+  - `OPENAI_API_KEY` - OpenAI API key for AI agent
+  - `LANGCHAIN_API_KEY` - LangSmith API key for tracing
+  - `LANGCHAIN_TRACING_V2=true` - Enable LangSmith tracing
+  - `LANGCHAIN_PROJECT=lovio-app` - Project name for trace organization
 
 ## Common Workflows
 

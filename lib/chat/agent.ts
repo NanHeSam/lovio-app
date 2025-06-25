@@ -1,6 +1,7 @@
 import { openai } from '@ai-sdk/openai';
 import { streamText, tool } from 'ai';
 import { z } from 'zod';
+import { AISDKExporter } from 'langsmith/vercel';
 import { 
   getActiveSessions, 
   getDailySummary, 
@@ -42,6 +43,7 @@ Current Active Sessions: ${activeSessions.length > 0 ?
     model: openai('gpt-4.1'),
     messages: messagesWithContext,
     maxSteps: 5,
+    experimental_telemetry: AISDKExporter.getSettings(),
     tools: {
       parseUserTime: tool({
         description: 'Convert AI-determined time to UTC for database storage. Call this when user mentions any time reference.',
