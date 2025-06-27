@@ -284,7 +284,7 @@ describe('Activity Query Functions', () => {
         createdBy: testUser.id,
         type: 'sleep',
       });
-      await updateActivity({ activityId: completedSession.id });
+      await updateActivity({ activityId: completedSession.id, endTime: new Date() });
     });
 
     it('should return all active sessions for child', async () => {

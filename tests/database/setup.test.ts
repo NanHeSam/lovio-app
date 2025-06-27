@@ -1,10 +1,13 @@
 import { describe, it, expect, afterAll } from '@jest/globals';
-import { db, pool } from '@/lib/db';
+import { db, getPool } from '@/lib/db';
 import { sql } from 'drizzle-orm';
 
 describe('Database Setup', () => {
   afterAll(async () => {
-    await pool.end();
+    const pool = getPool();
+    if (pool) {
+      await pool.end();
+    }
   });
 
   it('should connect to database successfully', async () => {
