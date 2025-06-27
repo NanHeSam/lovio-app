@@ -139,7 +139,7 @@ export async function logInstantActivity(params: {
   
   // Validate that this is an instant activity type
   if (['sleep', 'feed'].includes(type)) {
-    throw new Error('Sleep and feed activities should use startActivity/endActivity');
+    throw new Error('Sleep and feed activities should use startActivity/updateActivity');
   }
   
   const [newActivity] = await db
@@ -286,7 +286,8 @@ export async function getDailySummary(params: {
 
 /**
  * Get recent activities for a child
- * "When did baby last eat?"
+ * "When did baby last eat?" or "Show recent activities"
+ * Can also be used to get the last activity of a specific type by setting limit=1
  */
 export async function getRecentActivities(params: {
   childId: string;
@@ -294,15 +295,16 @@ export async function getRecentActivities(params: {
   limit?: number;
   hoursBack?: number;
 }): Promise<RecentActivity[]> {
-  const { childId, type, limit = 10, hoursBack = 24 } = params;
+  const { childId, type, limit = 10, hoursBack } = params;
   
-  const cutoffTime = new Date();
-  cutoffTime.setHours(cutoffTime.getHours() - hoursBack);
+  const whereConditions = [eq(activities.childId, childId)];
   
-  const whereConditions = [
-    eq(activities.childId, childId),
-    gte(activities.startTime, cutoffTime)
-  ];
+  // Only add time filter if hoursBack is specified
+  if (hoursBack !== undefined) {
+    const cutoffTime = new Date();
+    cutoffTime.setHours(cutoffTime.getHours() - hoursBack);
+    whereConditions.push(gte(activities.startTime, cutoffTime));
+  }
   
   if (type) {
     whereConditions.push(eq(activities.type, type));
@@ -334,51 +336,6 @@ export async function getRecentActivities(params: {
     details: result.details,
     ago: formatTimeAgo(result.startTime)
   }));
-}
-
-/**
- * Get the most recent activity of a specific type
- * "When did baby last eat?"
- */
-export async function getLastActivity(params: {
-  childId: string;
-  type: ActivityType;
-}): Promise<RecentActivity | null> {
-  const { childId, type } = params;
-  
-  const [result] = await db
-    .select({
-      id: activities.id,
-      type: activities.type,
-      childName: children.name,
-      startTime: activities.startTime,
-      endTime: activities.endTime,
-      details: activities.details
-    })
-    .from(activities)
-    .innerJoin(children, eq(activities.childId, children.id))
-    .where(
-      and(
-        eq(activities.childId, childId),
-        eq(activities.type, type)
-      )
-    )
-    .orderBy(desc(activities.startTime))
-    .limit(1);
-  
-  if (!result) {
-    return null;
-  }
-  
-  return {
-    id: result.id,
-    type: result.type,
-    childName: result.childName,
-    startTime: result.startTime,
-    endTime: result.endTime,
-    details: result.details,
-    ago: formatTimeAgo(result.startTime)
-  };
 }
 
 /**

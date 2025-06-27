@@ -1,14 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
-import { db, pool } from '@/lib/db';
+import { db, getPool } from '@/lib/db';
 import { users, children, userChildren, activities } from '@/lib/db/schema';
 import {
   startActivity,
-  endActivity,
+  updateActivity,
   logInstantActivity,
   getActiveSessions,
   getDailySummary,
   getRecentActivities,
-  getLastActivity,
   validateChildAccess
 } from '@/lib/db/queries';
 import type { DiaperDetails, NursingDetails } from '@/lib/db/types';
@@ -67,7 +66,10 @@ describe('Activity Query Functions', () => {
     await db.delete(users);
     
     // Close database connection
-    await pool.end();
+    const pool = getPool();
+    if (pool) {
+      await pool.end();
+    }
   });
 
   describe('startActivity', () => {
@@ -133,7 +135,7 @@ describe('Activity Query Functions', () => {
     });
   });
 
-  describe('endActivity', () => {
+  describe('updateActivity (ending activities)', () => {
     it('should end an active session successfully', async () => {
       // Start a session
       const session = await startActivity({
@@ -144,9 +146,9 @@ describe('Activity Query Functions', () => {
 
       // End the session
       const endTime = new Date();
-      const result = await endActivity({
+      const result = await updateActivity({
         activityId: session.id,
-        endTime,
+        endTime: endTime
       });
 
       expect(result.endTime).toEqual(endTime);
@@ -168,7 +170,7 @@ describe('Activity Query Functions', () => {
       });
 
       // End with additional details (merge with existing details)
-      const result = await endActivity({
+      const result = await updateActivity({
         activityId: session.id,
         details: {
           ...initialDetails,
@@ -192,21 +194,23 @@ describe('Activity Query Functions', () => {
         type: 'sleep',
       });
 
-      await endActivity({
+      await updateActivity({
         activityId: session.id,
+        endTime: new Date(),
       });
 
       // Try to end again
       await expect(
-        endActivity({
+        updateActivity({
           activityId: session.id,
+          endTime: new Date(),
         })
       ).rejects.toThrow('Activity session is already ended');
     });
 
     it('should reject non-existent activity', async () => {
       await expect(
-        endActivity({
+        updateActivity({
           activityId: randomUUID(),
         })
       ).rejects.toThrow('Activity not found');
@@ -242,7 +246,7 @@ describe('Activity Query Functions', () => {
           type: 'sleep',
           details: { type: 'sleep' },
         })
-      ).rejects.toThrow('Sleep and feed activities should use startActivity/endActivity');
+      ).rejects.toThrow('Sleep and feed activities should use startActivity/updateActivity');
     });
   });
 
@@ -280,7 +284,7 @@ describe('Activity Query Functions', () => {
         createdBy: testUser.id,
         type: 'sleep',
       });
-      await endActivity({ activityId: completedSession.id });
+      await updateActivity({ activityId: completedSession.id });
     });
 
     it('should return all active sessions for child', async () => {
@@ -301,7 +305,7 @@ describe('Activity Query Functions', () => {
       // End all sessions
       const allSessions = await getActiveSessions({ childId: testChild.id });
       for (const session of allSessions) {
-        await endActivity({ activityId: session.id });
+        await updateActivity({ activityId: session.id, endTime: new Date() });
       }
 
       const emptySessions = await getActiveSessions({ childId: testChild.id });
@@ -327,7 +331,7 @@ describe('Activity Query Functions', () => {
         startTime: sleepStart,
       });
       
-      await endActivity({
+      await updateActivity({
         activityId: sleepSession.id,
         endTime: sleepEnd,
       });
@@ -343,7 +347,7 @@ describe('Activity Query Functions', () => {
         startTime: feedStart,
       });
       
-      await endActivity({
+      await updateActivity({
         activityId: feedSession.id,
         endTime: feedEnd,
       });
@@ -425,7 +429,7 @@ describe('Activity Query Functions', () => {
         startTime: new Date(now.getTime() - 2 * 60 * 60 * 1000), // 2 hours ago
       });
       
-      await endActivity({
+      await updateActivity({
         activityId: feedSession.id,
         endTime: new Date(now.getTime() - 1.5 * 60 * 60 * 1000), // 1.5 hours ago
       });
@@ -473,59 +477,7 @@ describe('Activity Query Functions', () => {
     });
   });
 
-  describe('getLastActivity', () => {
-    beforeEach(async () => {
-      // Clean up first
-      await db.delete(activities);
-      
-      // Create multiple feed activities
-      const now = new Date();
-      
-      const oldFeed = await startActivity({
-        childId: testChild.id,
-        createdBy: testUser.id,
-        type: 'feed',
-        startTime: new Date(now.getTime() - 3 * 60 * 60 * 1000), // 3 hours ago
-      });
-      
-      await endActivity({
-        activityId: oldFeed.id,
-        endTime: new Date(now.getTime() - 2.5 * 60 * 60 * 1000),
-      });
 
-      const recentFeed = await startActivity({
-        childId: testChild.id,
-        createdBy: testUser.id,
-        type: 'feed',
-        startTime: new Date(now.getTime() - 1 * 60 * 60 * 1000), // 1 hour ago
-      });
-      
-      await endActivity({
-        activityId: recentFeed.id,
-        endTime: new Date(now.getTime() - 0.5 * 60 * 60 * 1000),
-      });
-    });
-
-    it('should return the most recent activity of specified type', async () => {
-      const lastFeed = await getLastActivity({
-        childId: testChild.id,
-        type: 'feed',
-      });
-
-      expect(lastFeed).toBeDefined();
-      expect(lastFeed!.type).toBe('feed');
-      expect(lastFeed!.ago).toContain('hour');
-    });
-
-    it('should return null when no activity of type exists', async () => {
-      const lastSleep = await getLastActivity({
-        childId: testChild.id,
-        type: 'sleep',
-      });
-
-      expect(lastSleep).toBeNull();
-    });
-  });
 
   describe('validateChildAccess', () => {
     it('should return true for valid user-child relationship', async () => {

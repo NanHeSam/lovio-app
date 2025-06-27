@@ -6,7 +6,6 @@ import {
   getActiveSessions, 
   getDailySummary, 
   getRecentActivities, 
-  getLastActivity,
   startActivity,
   updateActivity,
   logInstantActivity
@@ -113,25 +112,6 @@ Current Active Sessions: ${activeSessions.length > 0 ?
         },
       }),
 
-      getLastActivity: tool({
-        description: 'Get the most recent activity of a specific type for the baby',
-        parameters: z.object({
-          type: z.enum(['sleep', 'feed', 'diaper']).describe('Type of activity to get'),
-        }),
-        execute: async ({ type }) => {
-          try {
-            if (!childId) {
-              return { error: 'No child selected' };
-            }
-
-            const activity = await getLastActivity({ childId, type });
-            return activity ? { activity } : { message: `No ${type} activity found for this child` };
-          } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Unknown error' };
-          }
-        },
-      }),
-
       startActivity: tool({
         description: 'Start a new activity session (sleep or feed)',
         parameters: z.object({
@@ -156,7 +136,6 @@ Current Active Sessions: ${activeSessions.length > 0 ?
           }
         },
       }),
-
 
       logActivity: tool({
         description: 'Log a completed activity (sleep, feed, or diaper) with details and optional duration',
@@ -192,16 +171,16 @@ Current Active Sessions: ${activeSessions.length > 0 ?
 
             // Calculate times
             const activityStartTime = startTimeUTC ? new Date(startTimeUTC) : new Date(deviceTime);
-+           if (isNaN(activityStartTime.getTime())) {
-+             return { error: 'Invalid start time provided' };
-+           }
+            if (isNaN(activityStartTime.getTime())) {
+              return { error: 'Invalid start time provided' };
+            }
             let activityEndTime = endTimeUTC ? new Date(endTimeUTC) : undefined;
             
             // If duration is provided but no endTime, calculate endTime
             if (duration && !activityEndTime) {
-+             if (duration < 0) {
-+               return { error: 'Duration must be positive' };
-+             }
+              if (duration < 0) {
+                return { error: 'Duration must be positive' };
+              }
               activityEndTime = new Date(activityStartTime.getTime() + duration * 60000);
             }
 
