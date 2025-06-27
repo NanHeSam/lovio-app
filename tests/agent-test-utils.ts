@@ -87,7 +87,12 @@ export function parseTestTime(timeStr: string): Date {
 
 // Clean up database after each test
 export async function cleanupDatabase() {
-  await db.delete(activities).where(eq(activities.childId, TEST_CHILD_ID));
+  try {
+    await db.delete(activities).where(eq(activities.childId, TEST_CHILD_ID));
+  } catch (error) {
+    console.warn('Database cleanup failed:', error instanceof Error ? error.message : 'Unknown error');
+    // Don't throw to avoid breaking test teardown
+  }
 }
 
 // Load test scenarios from YAML
