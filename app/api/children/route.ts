@@ -18,25 +18,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name and birth date are required' }, { status: 400 });
     }
 
-    // Create the child
-    const [child] = await db
-      .insert(children)
-      .values({
-        name,
-        birthDate,
-        gender: gender || null,
-      })
-      .returning();
+    // Create the child and user-child relationship in a transaction
+    const [child] = await db.transaction(async (tx) => {
+      const [newChild] = await tx
+        .insert(children)
+        .values({
+          name,
+          birthDate,
+          gender: gender || null,
+        })
+        .returning();
 
-    // Create the user-child relationship
-    await db
-      .insert(userChildren)
-      .values({
-        userId: user.id,
-        childId: child.id,
-        role: 'parent',
-        permissions: { read: true, write: true, admin: true },
-      });
+      // Create the user-child relationship
+      await tx
+        .insert(userChildren)
+        .values({
+          userId: user.id,
+          childId: newChild.id,
+          role: 'parent',
+          permissions: { read: true, write: true, admin: true },
+        });
+      
+      return [newChild];
+    });
 
     return NextResponse.json({ child });
   } catch (error) {

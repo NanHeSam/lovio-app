@@ -2,18 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { InferSelectModel } from 'drizzle-orm';
-import type { users } from '@/lib/db/schema';
 
-type User = InferSelectModel<typeof users>;
+interface OnboardingFormProps {}
 
-interface OnboardingFormProps {
-  user: User;
-}
-
-export default function OnboardingForm({ }: OnboardingFormProps) {
+export default function OnboardingForm({}: OnboardingFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     birthDate: '',
@@ -25,6 +20,7 @@ export default function OnboardingForm({ }: OnboardingFormProps) {
     setIsLoading(true);
 
     try {
+      setError(null);
       const response = await fetch('/api/children', {
         method: 'POST',
         headers: {
@@ -36,17 +32,25 @@ export default function OnboardingForm({ }: OnboardingFormProps) {
       if (response.ok) {
         router.push('/dashboard');
       } else {
-        console.error('Failed to create child profile');
+        const errorData = await response.json().catch(() => ({}));
+        setError(errorData.error || 'Failed to create child profile. Please try again.');
       }
     } catch (error) {
       console.error('Error:', error);
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+      <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
           Child's Name
@@ -100,5 +104,6 @@ export default function OnboardingForm({ }: OnboardingFormProps) {
         {isLoading ? 'Adding Child...' : 'Add Child & Continue'}
       </button>
     </form>
+    </div>
   );
 }

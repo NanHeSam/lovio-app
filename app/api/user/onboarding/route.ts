@@ -14,6 +14,19 @@ export async function POST(req: NextRequest) {
 
     const { timezone, notifications, reminderFrequency } = await req.json();
 
+    // Validate input data
+    if (!timezone || typeof timezone !== 'string') {
+      return NextResponse.json({ error: 'Invalid timezone' }, { status: 400 });
+    }
+    
+    if (notifications !== undefined && typeof notifications !== 'boolean') {
+      return NextResponse.json({ error: 'Invalid notifications format' }, { status: 400 });
+    }
+    
+    if (reminderFrequency !== undefined && typeof reminderFrequency !== 'string') {
+      return NextResponse.json({ error: 'Invalid reminderFrequency format' }, { status: 400 });
+    }
+
     // Update user with onboarding data
     await db
       .update(users)
