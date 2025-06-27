@@ -39,7 +39,7 @@ scenarios:
     current_state: {
       active_sessions: [{ type: "sleep", id: "sleep1", started: "30min_ago" }]
     }
-    expected: { action: "endActivity", activity_id: "sleep1", end_time: "calculated" }
+    expected: { action: "updateActivity", activity_id: "sleep1", end_time: "calculated" }
     description: "Should end existing session with calculated end time based on duration"
 
   - name: "sleep_recent_active_woke_up"
@@ -47,7 +47,14 @@ scenarios:
     current_state: {
       active_sessions: [{ type: "sleep", id: "sleep1", started: "45min_ago" }]
     }
-    expected: { action: "endActivity", activity_id: "sleep1", end_time: "now" }
+    expected: { action: "updateActivity", activity_id: "sleep1", end_time: "now" }
+
+  - name: "sleep_recent_active_update_start_time"
+    user_input: "update the sleep start time to 1 hour ago"
+    current_state: {
+      active_sessions: [{ type: "sleep", id: "sleep1", started: "30min_ago" }]
+    }
+    expected: { action: "updateActivity", activity_id: "sleep1", time_parsing_required: true, time_offset_minutes: -60 }
 
   # Stale Active Sleep - Conflict Resolution
   - name: "sleep_stale_active_new_start"
@@ -109,14 +116,14 @@ scenarios:
     current_state: {
       active_sessions: [{ type: "feed", id: "feed1", started: "10min_ago" }]
     }
-    expected: { action: "endActivity", activity_id: "feed1", details: { volume: 100, type: "bottle" } }
+    expected: { action: "updateActivity", activity_id: "feed1", details: { volume: 100, type: "bottle" } }
 
   - name: "feed_recent_active_finished"
     user_input: "baby finished eating"
     current_state: {
       active_sessions: [{ type: "feed", id: "feed1", started: "15min_ago" }]
     }
-    expected: { action: "endActivity", activity_id: "feed1", end_time: "now" }
+    expected: { action: "updateActivity", activity_id: "feed1", end_time: "now" }
 
   # Stale Active Feed - Conflicts
   - name: "feed_stale_active_new_volume"

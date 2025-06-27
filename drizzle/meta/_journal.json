@@ -8,6 +8,13 @@
       "when": 1750403269769,
       "tag": "0000_initial_lovio_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1751001865741,
+      "tag": "0001_clerk_user_id_text_format",
+      "breakpoints": true
     }
   ]
 }

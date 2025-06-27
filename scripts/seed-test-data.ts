@@ -8,10 +8,8 @@ import { db } from '../lib/db/index';
 import { users, children, userChildren } from '../lib/db/schema';
 
 // Test user and child IDs (hardcoded for testing)
--import // Test user and child IDs (hardcoded for testing)
--export const TEST_USER_ID = '550e8400-e29b-41d4-a716-446655440000';
--export const TEST_CHILD_ID = '550e8400-e29b-41d4-a716-446655440001';
-+import { TEST_USER_ID, TEST_CHILD_ID } from '../lib/test-constants';
+export const TEST_USER_ID = 'user_test_2z4pSEXBF8UZpE310f1fZBt5by9'; // Clerk format
+export const TEST_CHILD_ID = '550e8400-e29b-41d4-a716-446655440001';
 
 async function seedTestData() {
   try {
@@ -23,11 +21,7 @@ async function seedTestData() {
       fullName: 'Test Parent',
       timezone: 'America/Los_Angeles',
       preferences: {
-        notifications: {
-          email: true,
-          push: true,
-          reminders: true
-        },
+        notifications: true,
         privacy: {
           shareData: false,
           analytics: true

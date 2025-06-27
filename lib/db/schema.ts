@@ -18,7 +18,7 @@ import type { UserPreferences, ChildMetadata, UserRole, Gender, ActivityType, Ac
 // ============================================================================
 
 export const users = pgTable('users', {
-  id: uuid('id').primaryKey(), // External auth service user ID - no default generation
+  id: text('id').primaryKey(), // External auth service user ID (Clerk format)
   fullName: varchar('full_name', { length: 255 }).notNull(),
   timezone: varchar('timezone', { length: 50 }),
   avatarUrl: text('avatar_url'),
@@ -44,7 +44,7 @@ export const children = pgTable('children', {
 
 export const userChildren = pgTable('user_children', {
   id: uuid('id').primaryKey().default(sql`uuid_generate_v4()`),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   childId: uuid('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
   role: varchar('role', { length: 20 }).$type<UserRole>(),
   permissions: jsonb('permissions').default(sql`'{"read": true, "write": true, "admin": false}'::jsonb`),
@@ -87,7 +87,7 @@ export const userChildrenRelations = relations(userChildren, ({ one }) => ({
 export const activities = pgTable('activities', {
   id: uuid('id').primaryKey().default(sql`uuid_generate_v4()`),
   childId: uuid('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
-  createdBy: uuid('created_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdBy: text('created_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
   
   // Activity Classification (Core Fields - Always Required)
   type: varchar('type', { length: 50 }).$type<ActivityType>().notNull(),
@@ -111,7 +111,7 @@ export const activities = pgTable('activities', {
 
 export const aiInteractions = pgTable('ai_interactions', {
   id: uuid('id').primaryKey().default(sql`uuid_generate_v4()`),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   childId: uuid('child_id').references(() => children.id, { onDelete: 'cascade' }),
   
   userInput: text('user_input').notNull(),

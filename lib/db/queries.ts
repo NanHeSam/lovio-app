@@ -64,14 +64,16 @@ export async function startActivity(params: {
 }
 
 /**
- * End an active activity session
+ * Update an existing activity (modify start time, end time, details, etc.)
+ * This replaces the old endActivity function - ending is just updating endTime
  */
-export async function endActivity(params: {
+export async function updateActivity(params: {
   activityId: string;
+  startTime?: Date;
   endTime?: Date;
   details?: ActivityDetails;
 }) {
-  const { activityId, endTime = new Date(), details } = params;
+  const { activityId, startTime, endTime, details } = params;
   
   // Get the current activity to merge details
   const currentActivities = await db
@@ -86,20 +88,36 @@ export async function endActivity(params: {
   
   const currentActivity = currentActivities[0];
   
-  if (currentActivity.endTime) {
+  // Check if trying to end an already ended activity
+  if (endTime !== undefined && currentActivity.endTime) {
     throw new Error('Activity session is already ended');
   }
   
   // Merge details if provided
   const mergedDetails = details ? { ...currentActivity.details, ...details } as ActivityDetails : currentActivity.details;
   
+  // Build update object with only provided fields
+  const updateData: {
+    updatedAt: Date;
+    details: ActivityDetails;
+    startTime?: Date;
+    endTime?: Date;
+  } = {
+    updatedAt: new Date(),
+    details: mergedDetails
+  };
+  
+  if (startTime !== undefined) {
+    updateData.startTime = startTime;
+  }
+  
+  if (endTime !== undefined) {
+    updateData.endTime = endTime;
+  }
+  
   const [updatedActivity] = await db
     .update(activities)
-    .set({
-      endTime,
-      details: mergedDetails,
-      updatedAt: new Date()
-    })
+    .set(updateData)
     .where(eq(activities.id, activityId))
     .returning();
   

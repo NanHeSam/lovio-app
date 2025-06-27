@@ -44,11 +44,7 @@ export interface UserPermissions {
 }
 
 export interface UserPreferences {
-  notifications?: {
-    email?: boolean;
-    push?: boolean;
-    reminders?: boolean;
-  };
+  notifications?: boolean;
   privacy?: {
     shareData?: boolean;
     analytics?: boolean;
