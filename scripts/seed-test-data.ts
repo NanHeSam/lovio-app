@@ -23,11 +23,7 @@ async function seedTestData() {
       fullName: 'Test Parent',
       timezone: 'America/Los_Angeles',
       preferences: {
-        notifications: {
-          email: true,
-          push: true,
-          reminders: true
-        },
+        notifications: true,
         privacy: {
           shareData: false,
           analytics: true
