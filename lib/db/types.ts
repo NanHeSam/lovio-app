@@ -96,7 +96,7 @@ export type FeedDetails = NursingDetails | BottleDetails;
 export interface DiaperDetails {
   type: 'diaper';
   contents: 'pee' | 'poo' | 'both';
-  volume: 'little' | 'medium' | 'large';
+  volume?: 'little' | 'medium' | 'large';
   hasRash?: boolean;
   pooColor?: 'yellow' | 'brown' | 'green' | 'black' | 'other';
   pooTexture?: 'liquid' | 'soft' | 'formed' | 'hard';
