@@ -192,7 +192,6 @@ function getToolDisplayName(toolName: string): string {
     checkActiveSessions: 'Checking current activities',
     getDailySummary: 'Getting daily summary',
     getRecentActivities: 'Getting recent activities',
-    getLastActivity: 'Finding last activity',
     startActivity: 'Starting activity',
     endActivity: 'Ending activity',
     logDiaperChange: 'Logging diaper change',
