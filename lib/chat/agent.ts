@@ -210,10 +210,16 @@ Current Active Sessions: ${activeSessions.length > 0 ?
 
             // Calculate times
             const activityStartTime = startTimeUTC ? new Date(startTimeUTC) : new Date(deviceTime);
++           if (isNaN(activityStartTime.getTime())) {
++             return { error: 'Invalid start time provided' };
++           }
             let activityEndTime = endTimeUTC ? new Date(endTimeUTC) : undefined;
             
             // If duration is provided but no endTime, calculate endTime
             if (duration && !activityEndTime) {
++             if (duration < 0) {
++               return { error: 'Duration must be positive' };
++             }
               activityEndTime = new Date(activityStartTime.getTime() + duration * 60000);
             }
 

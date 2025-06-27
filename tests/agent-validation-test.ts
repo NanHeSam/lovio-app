@@ -151,6 +151,7 @@ async function testValidationLogic() {
   }
 }
 
-if (require.main === module) {
+// For ES modules, check if this file was run directly
+if (import.meta.url === `file://${process.argv[1]}`) {
   testValidationLogic().catch(console.error);
 }

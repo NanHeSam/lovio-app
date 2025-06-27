@@ -17,7 +17,7 @@ export function Chatbot({ userId, childId }: ChatbotProps) {
     body: {
       userId,
       childId,
-      deviceTime: new Date().toISOString(), // Full device time with timezone
+      deviceTime: new Date().toISOString(), // UTC time for consistency
     },
   });
 
