@@ -62,6 +62,11 @@ Current Active Sessions: ${activeSessions.length > 0 ?
       result: result,
       timestamp: new Date().toISOString()
     });
+
+    // If this function call resulted in an activity creation, log the linkage
+    if (result?.activity?.id && interactionId) {
+      console.log(`Function ${functionName} created activity ${result.activity.id} in LangSmith trace ${interactionId}`);
+    }
   };
 
   try {
@@ -77,7 +82,14 @@ Current Active Sessions: ${activeSessions.length > 0 ?
     model: openai('gpt-4.1'),
     messages: messagesWithContext,
     maxSteps: 5,
-    experimental_telemetry: AISDKExporter.getSettings(),
+    experimental_telemetry: AISDKExporter.getSettings({
+      runId: interactionId,
+      metadata: {
+        userId,
+        childId,
+        userInput: userInput.substring(0, 100), // First 100 chars for context
+      }
+    }),
     tools: {
       parseUserTime: tool({
         description: 'Convert AI-determined time to UTC for database storage. Call this when user mentions any time reference.',
@@ -483,6 +495,12 @@ Key principles:
               ...(associatedActivityId && { activityId: associatedActivityId })
             })
             .where(eq(aiInteractions.id, interactionId));
+
+          // Note: LangSmith trace is already linked via runId = interactionId
+          // Activity ID is now available in our database record and can be cross-referenced
+          if (associatedActivityId) {
+            console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId} and LangSmith trace`);
+          }
         }
       } catch (error) {
         console.error('Error updating AI interaction:', error);

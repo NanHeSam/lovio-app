@@ -521,3 +521,59 @@ export async function logAIInteraction(params: {
   
   return interaction;
 }
+
+/**
+ * Get AI interactions with activity correlation and LangSmith trace info
+ */
+export async function getAIInteractionsWithTraceInfo(params: {
+  userId?: string;
+  childId?: string;
+  activityId?: string;
+  limit?: number;
+}) {
+  const { userId, childId, activityId, limit = 50 } = params;
+  
+  const whereConditions = [];
+  
+  if (userId) {
+    whereConditions.push(eq(aiInteractions.userId, userId));
+  }
+  
+  if (childId) {
+    whereConditions.push(eq(aiInteractions.childId, childId));
+  }
+  
+  if (activityId) {
+    whereConditions.push(eq(aiInteractions.activityId, activityId));
+  }
+
+  const interactions = await db
+    .select({
+      id: aiInteractions.id,
+      userId: aiInteractions.userId,
+      childId: aiInteractions.childId,
+      userInput: aiInteractions.userInput,
+      aiResponse: aiInteractions.aiResponse,
+      functionCalls: aiInteractions.functionCalls,
+      activityId: aiInteractions.activityId,
+      errorMessage: aiInteractions.errorMessage,
+      createdAt: aiInteractions.createdAt,
+      // Activity details if linked
+      activityType: activities.type,
+      activityStartTime: activities.startTime,
+      activityEndTime: activities.endTime,
+      activityDetails: activities.details,
+    })
+    .from(aiInteractions)
+    .leftJoin(activities, eq(aiInteractions.activityId, activities.id))
+    .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+    .orderBy(desc(aiInteractions.createdAt))
+    .limit(limit);
+
+  // Add LangSmith trace correlation info
+  return interactions.map(interaction => ({
+    ...interaction,
+    langsmithTraceId: interaction.id, // AI interaction ID = LangSmith run ID
+    langsmithTraceUrl: `https://smith.langchain.com/o/YOUR_ORG_ID/p/lovio-app/r/${interaction.id}`, // Customize with actual org ID
+  }));
+}
