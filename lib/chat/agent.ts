@@ -8,9 +8,11 @@ import {
   getRecentActivities, 
   startActivity,
   updateActivity,
-  logInstantActivity
+  logInstantActivity,
+  logAIInteraction
 } from '@/lib/db/queries';
-import { db, activities } from '@/lib/db';
+import { db, activities, aiInteractions } from '@/lib/db';
+import { eq } from 'drizzle-orm';
 import type { ActivityDetails, SleepDetails, DiaperDetails, BottleDetails, NursingDetails } from '@/lib/db/types';
 
 export interface ChatRequest {
@@ -22,6 +24,10 @@ export interface ChatRequest {
 
 export async function processChatRequest(request: ChatRequest) {
   const { messages, userId, childId, deviceTime } = request;
+
+  // Get the user's input message (last message should be from user)
+  const userMessage = messages[messages.length - 1];
+  const userInput = userMessage?.role === 'user' ? userMessage.content : '';
 
   // Pre-fetch active sessions to include in context (save tokens)
   const activeSessions = await getActiveSessions(childId ? { childId } : undefined);
@@ -38,7 +44,20 @@ Current Active Sessions: ${activeSessions.length > 0 ?
 
   const messagesWithContext = [contextMessage, ...messages];
 
-  return await streamText({
+  // Initialize interaction tracking
+  let interactionId: string | null = null;
+  let associatedActivityId: string | null = null;
+
+  try {
+    // Log the initial interaction
+    const interaction = await logAIInteraction({
+      userId,
+      childId,
+      userInput,
+    });
+    interactionId = interaction.id;
+
+    const result = streamText({
     model: openai('gpt-4.1'),
     messages: messagesWithContext,
     maxSteps: 5,
@@ -130,6 +149,10 @@ Current Active Sessions: ${activeSessions.length > 0 ?
               type,
               ...(startTimeUTC && { startTime: new Date(startTimeUTC) })
             });
+            
+            // Associate this activity with the AI interaction
+            associatedActivityId = activity.id;
+            
             return { success: true, activity };
           } catch (error) {
             return { error: error instanceof Error ? error.message : 'Unknown error' };
@@ -239,6 +262,10 @@ Current Active Sessions: ${activeSessions.length > 0 ?
                 time: activityStartTime,
                 details
               });
+              
+              // Associate this activity with the AI interaction
+              associatedActivityId = activity.id;
+              
               return { success: true, activity, logged: 'instant' };
             } else {
               // For activities with duration, insert directly with both start and end times
@@ -250,6 +277,9 @@ Current Active Sessions: ${activeSessions.length > 0 ?
                 endTime: activityEndTime,
                 details
               }).returning();
+              
+              // Associate this activity with the AI interaction
+              associatedActivityId = activity.id;
               
               return { success: true, activity, logged: 'duration' };
             }
@@ -331,6 +361,9 @@ Current Active Sessions: ${activeSessions.length > 0 ?
               ...(details && { details })
             });
             
+            // Associate this activity with the AI interaction
+            associatedActivityId = activityId;
+            
             return { success: true, activity };
           } catch (error) {
             return { error: error instanceof Error ? error.message : 'Unknown error' };
@@ -382,5 +415,47 @@ Key principles:
 - Smart updates over unnecessary conflicts
 - Ask clarification only for genuine ambiguity
 - Always confirm with local time context`,
-  });
+    });
+
+    // Handle completion to update the interaction record
+    result.finishReason.then(async () => {
+      try {
+        if (interactionId) {
+          // Get the final response text
+          const responseText = await result.text;
+          
+          // Update the interaction with the AI response and activity association
+          await db.update(aiInteractions)
+            .set({
+              aiResponse: responseText,
+              ...(associatedActivityId && { activityId: associatedActivityId })
+            })
+            .where(eq(aiInteractions.id, interactionId));
+        }
+      } catch (error) {
+        console.error('Error updating AI interaction:', error);
+      }
+    }).catch((error) => {
+      console.error('Error in finishReason handler:', error);
+    });
+
+    return result;
+    
+  } catch (error) {
+    // Log error in the interaction record
+    if (interactionId) {
+      try {
+        await db.update(aiInteractions)
+          .set({
+            errorMessage: error instanceof Error ? error.message : 'Unknown error'
+          })
+          .where(eq(aiInteractions.id, interactionId));
+      } catch (updateError) {
+        console.error('Error updating AI interaction with error:', updateError);
+      }
+    }
+    
+    // Re-throw the error
+    throw error;
+  }
 }

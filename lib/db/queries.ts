@@ -1,5 +1,5 @@
 import { db } from './index';
-import { activities, children, users, userChildren } from './schema';
+import { activities, children, users, userChildren, aiInteractions } from './schema';
 import { eq, and, isNull, desc, gte, lte } from 'drizzle-orm';
 import type { 
   ActivityType, 
@@ -465,4 +465,33 @@ export async function getDashboardData(userId: string, childId: string) {
   });
 
   return result;
+}
+
+// ============================================================================
+// AI INTERACTION LOGGING
+// ============================================================================
+
+/**
+ * Log an AI interaction for debugging and analytics
+ */
+export async function logAIInteraction(params: {
+  userId: string;
+  childId?: string;
+  userInput: string;
+  aiResponse?: string;
+  activityId?: string;
+  errorMessage?: string;
+}) {
+  const { userId, childId, userInput, aiResponse, activityId, errorMessage } = params;
+  
+  const [interaction] = await db.insert(aiInteractions).values({
+    userId,
+    childId: childId || null,
+    userInput,
+    aiResponse: aiResponse || null,
+    activityId: activityId || null,
+    errorMessage: errorMessage || null,
+  }).returning();
+  
+  return interaction;
 }
