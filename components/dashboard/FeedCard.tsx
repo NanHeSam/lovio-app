@@ -21,23 +21,24 @@ export default function FeedCard({ activeSession, lastFeed }: FeedCardProps) {
     const feedType = details?.type === 'nursing' ? 'Nursing' : 'Bottle';
     
     return (
-      <Card className="border-blue-200 bg-blue-50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            🍼 {feedType} - Active
+      <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-lg transition-all duration-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-blue-800">
+            <span className="text-2xl">🍼</span>
+            <span className="text-lg font-bold">{feedType} - Active</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
+        <CardContent className="pt-0">
+          <div className="space-y-3">
             <LiveTimer 
               startTime={activeSession.startTime}
-              className="text-2xl font-bold text-blue-600"
+              className="text-3xl font-bold text-blue-700 tracking-tight"
             />
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-blue-600 font-medium">
               Started {activeSession.durationMinutes < 60 ? `${activeSession.durationMinutes}m ago` : `${Math.floor(activeSession.durationMinutes / 60)}h ${activeSession.durationMinutes % 60}m ago`}
             </div>
             {details?.type === 'nursing' && (
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-blue-600 bg-blue-50 rounded-lg p-2">
                 Left: {details.leftDuration || 0}m | Right: {details.rightDuration || 0}m
               </div>
             )}
@@ -53,26 +54,27 @@ export default function FeedCard({ activeSession, lastFeed }: FeedCardProps) {
     const duration = getDurationMinutes(lastFeed.startTime, lastFeed.endTime);
     
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            🍼 Last {feedType}
+      <Card className="hover:shadow-md transition-all duration-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-gray-800">
+            <span className="text-2xl">🍼</span>
+            <span className="text-lg font-bold">Last {feedType}</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="text-sm text-gray-600">
+        <CardContent className="pt-0">
+          <div className="space-y-3">
+            <div className="text-sm text-gray-600 font-medium">
               {lastFeed.ago}
             </div>
-            <div className="text-lg font-semibold">
+            <div className="text-2xl font-bold text-gray-900">
               {details?.type === 'nursing' ? (
-                `${duration}m total`
+                `${duration}m`
               ) : (
                 `${(details as any)?.volume || 0}${(details as any)?.unit || 'ml'}`
               )}
             </div>
             {details?.type === 'nursing' && (
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-2">
                 Left: {details.leftDuration || 0}m | Right: {details.rightDuration || 0}m
               </div>
             )}
@@ -83,13 +85,14 @@ export default function FeedCard({ activeSession, lastFeed }: FeedCardProps) {
   }
 
   return (
-    <Card className="border-gray-200">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          🍼 Feed
+    <Card className="border-gray-200 hover:shadow-md transition-all duration-200">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-gray-600">
+          <span className="text-2xl opacity-50">🍼</span>
+          <span className="text-lg font-bold">Feed</span>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         <div className="text-sm text-gray-500">
           No recent feeds
         </div>
