@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RecentActivity, ActiveSession, FeedDetails } from "@/lib/db/types";
 import LiveTimer from "./LiveTimer";
+import { Button } from "@/components/ui/button";
 
 // Helper function to get duration in minutes
 const getDurationMinutes = (startTime: Date, endTime?: Date | null): number => {
@@ -11,21 +12,43 @@ const getDurationMinutes = (startTime: Date, endTime?: Date | null): number => {
 interface FeedCardProps {
   activeSession?: ActiveSession;
   lastFeed?: RecentActivity;
+  onClick?: () => void;
+  onStopSession?: (sessionId: string) => Promise<void>;
 }
 
-export default function FeedCard({ activeSession, lastFeed }: FeedCardProps) {
+export default function FeedCard({ activeSession, lastFeed, onClick, onStopSession }: FeedCardProps) {
   const isActive = activeSession?.type === 'feed';
+  
+  const handleStopClick = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the card click
+    if (activeSession && onStopSession) {
+      await onStopSession(activeSession.id);
+    }
+  };
   
   if (isActive && activeSession) {
     const details = lastFeed?.details as FeedDetails;
     const feedType = details?.type === 'nursing' ? 'Nursing' : 'Bottle';
     
     return (
-      <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-lg transition-all duration-200">
+      <Card 
+        className="border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-lg transition-all duration-200 cursor-pointer"
+        onClick={onClick}
+      >
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-blue-800">
-            <span className="text-2xl">🍼</span>
-            <span className="text-lg font-bold">{feedType} - Active</span>
+          <CardTitle className="flex items-center justify-between text-blue-800">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🍼</span>
+              <span className="text-lg font-bold">{feedType} - Active</span>
+            </div>
+            <Button
+              onClick={handleStopClick}
+              size="sm"
+              variant="outline"
+              className="bg-white hover:bg-blue-50 border-blue-300 text-blue-700 hover:text-blue-800"
+            >
+              Stop
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
@@ -54,7 +77,10 @@ export default function FeedCard({ activeSession, lastFeed }: FeedCardProps) {
     const duration = getDurationMinutes(lastFeed.startTime, lastFeed.endTime);
     
     return (
-      <Card className="hover:shadow-md transition-all duration-200">
+      <Card 
+        className="hover:shadow-md transition-all duration-200 cursor-pointer"
+        onClick={onClick}
+      >
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-gray-800">
             <span className="text-2xl">🍼</span>
@@ -85,7 +111,10 @@ export default function FeedCard({ activeSession, lastFeed }: FeedCardProps) {
   }
 
   return (
-    <Card className="border-gray-200 hover:shadow-md transition-all duration-200">
+    <Card 
+      className="border-gray-200 hover:shadow-md transition-all duration-200 cursor-pointer"
+      onClick={onClick}
+    >
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-gray-600">
           <span className="text-2xl opacity-50">🍼</span>

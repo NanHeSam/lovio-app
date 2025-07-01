@@ -3,9 +3,10 @@ import { RecentActivity, DiaperDetails } from "@/lib/db/types";
 
 interface DiaperCardProps {
   lastDiaper?: RecentActivity;
+  onClick?: () => void;
 }
 
-export default function DiaperCard({ lastDiaper }: DiaperCardProps) {
+export default function DiaperCard({ lastDiaper, onClick }: DiaperCardProps) {
   if (lastDiaper) {
     const details = lastDiaper.details as DiaperDetails;
     
@@ -24,7 +25,10 @@ export default function DiaperCard({ lastDiaper }: DiaperCardProps) {
     };
 
     return (
-      <Card className="hover:shadow-md transition-all duration-200">
+      <Card 
+        className="hover:shadow-md transition-all duration-200 cursor-pointer"
+        onClick={onClick}
+      >
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-gray-800">
             <span className="text-2xl">👶</span>
@@ -61,7 +65,10 @@ export default function DiaperCard({ lastDiaper }: DiaperCardProps) {
   }
 
   return (
-    <Card className="border-gray-200 hover:shadow-md transition-all duration-200">
+    <Card 
+      className="border-gray-200 hover:shadow-md transition-all duration-200 cursor-pointer"
+      onClick={onClick}
+    >
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-gray-600">
           <span className="text-2xl opacity-50">👶</span>

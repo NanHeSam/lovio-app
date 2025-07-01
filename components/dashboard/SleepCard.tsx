@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RecentActivity, ActiveSession } from "@/lib/db/types";
 import LiveTimer from "./LiveTimer";
+import { Button } from "@/components/ui/button";
 
 // Helper function to get duration in minutes
 const getDurationMinutes = (startTime: Date, endTime?: Date | null): number => {
@@ -11,18 +12,40 @@ const getDurationMinutes = (startTime: Date, endTime?: Date | null): number => {
 interface SleepCardProps {
   activeSession?: ActiveSession;
   lastSleep?: RecentActivity;
+  onClick?: () => void;
+  onStopSession?: (sessionId: string) => Promise<void>;
 }
 
-export default function SleepCard({ activeSession, lastSleep }: SleepCardProps) {
+export default function SleepCard({ activeSession, lastSleep, onClick, onStopSession }: SleepCardProps) {
   const isActive = activeSession?.type === 'sleep';
+  
+  const handleStopClick = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the card click
+    if (activeSession && onStopSession) {
+      await onStopSession(activeSession.id);
+    }
+  };
   
   if (isActive && activeSession) {
     return (
-      <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100 hover:shadow-lg transition-all duration-200">
+      <Card 
+        className="border-purple-200 bg-gradient-to-br from-purple-50 to-purple-100 hover:shadow-lg transition-all duration-200 cursor-pointer"
+        onClick={onClick}
+      >
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-purple-800">
-            <span className="text-2xl">😴</span>
-            <span className="text-lg font-bold">Sleep - Active</span>
+          <CardTitle className="flex items-center justify-between text-purple-800">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">😴</span>
+              <span className="text-lg font-bold">Sleep - Active</span>
+            </div>
+            <Button
+              onClick={handleStopClick}
+              size="sm"
+              variant="outline"
+              className="bg-white hover:bg-purple-50 border-purple-300 text-purple-700 hover:text-purple-800"
+            >
+              Stop
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
@@ -46,7 +69,10 @@ export default function SleepCard({ activeSession, lastSleep }: SleepCardProps) 
     const minutes = duration % 60;
     
     return (
-      <Card className="hover:shadow-md transition-all duration-200">
+      <Card 
+        className="hover:shadow-md transition-all duration-200 cursor-pointer"
+        onClick={onClick}
+      >
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-gray-800">
             <span className="text-2xl">😴</span>
@@ -68,7 +94,10 @@ export default function SleepCard({ activeSession, lastSleep }: SleepCardProps) 
   }
 
   return (
-    <Card className="border-gray-200 hover:shadow-md transition-all duration-200">
+    <Card 
+      className="border-gray-200 hover:shadow-md transition-all duration-200 cursor-pointer"
+      onClick={onClick}
+    >
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-gray-600">
           <span className="text-2xl opacity-50">😴</span>

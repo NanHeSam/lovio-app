@@ -378,6 +378,7 @@ UPDATE scenarios (replaces old endActivity tool):
 
 Key principles:
 - Use intelligent judgment for "recent" vs "stale" 
+- answer the question in very concise manner, 1-2 short sentences max. 
 - Smart updates over unnecessary conflicts
 - Ask clarification only for genuine ambiguity
 - Always confirm with local time context`,
