@@ -3,7 +3,7 @@ import { getCurrentUserWithChildren } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { userChildren, children } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import DashboardCards from '@/components/dashboard/DashboardCards';
+import DashboardWrapper from '@/components/dashboard/DashboardWrapper';
 
 export default async function DashboardPage() {
   const user = await getCurrentUserWithChildren();
@@ -29,7 +29,7 @@ export default async function DashboardPage() {
     .where(eq(userChildren.userId, user.id));
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-24">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-gray-900">
@@ -108,7 +108,7 @@ export default async function DashboardPage() {
                     <h4 className="text-xl font-bold text-gray-900 mb-6">
                       Recent Activities
                     </h4>
-                    <DashboardCards childId={child.id} />
+                    <DashboardWrapper childId={child.id} userId={user.id} />
                   </div>
                 </div>
               );
