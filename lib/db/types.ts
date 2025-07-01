@@ -129,6 +129,7 @@ export interface ActiveSession {
   childName: string;
   startTime: Date;
   durationMinutes: number;
+  details: ActivityDetails | null;
 }
 
 export interface DailySummary {

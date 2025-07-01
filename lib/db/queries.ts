@@ -184,6 +184,7 @@ export async function getActiveSessions(params?: {
       childId: activities.childId,
       childName: children.name,
       startTime: activities.startTime,
+      details: activities.details,
     })
     .from(activities)
     .innerJoin(children, eq(activities.childId, children.id))
@@ -203,7 +204,8 @@ export async function getActiveSessions(params?: {
     childId: result.childId,
     childName: result.childName,
     startTime: result.startTime,
-    durationMinutes: Math.floor((Date.now() - result.startTime.getTime()) / 60000)
+    durationMinutes: Math.floor((Date.now() - result.startTime.getTime()) / 60000),
+    details: result.details
   }));
 }
 

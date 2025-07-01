@@ -27,7 +27,7 @@ export default function FeedCard({ activeSession, lastFeed, onClick, onStopSessi
   };
   
   if (isActive && activeSession) {
-    const details = lastFeed?.details as FeedDetails;
+    const details = activeSession.details as FeedDetails;
     const feedType = details?.type === 'nursing' ? 'Nursing' : 'Bottle';
     
     return (

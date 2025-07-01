@@ -1,7 +1,8 @@
 'use client';
 
-import { X, Clock, Calendar, Info } from 'lucide-react';
-import { ActiveSession, RecentActivity, FeedDetails, SleepDetails, DiaperDetails } from '@/lib/db/types';
+import { useEffect, useRef } from 'react';
+import { X, Clock, Info } from 'lucide-react';
+import { ActiveSession, RecentActivity, FeedDetails, DiaperDetails } from '@/lib/db/types';
 
 interface ActivityDetailModalProps {
   isOpen: boolean;
@@ -18,6 +19,23 @@ export default function ActivityDetailModal({
   activeSession,
   lastActivity
 }: ActivityDetailModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Handle Escape key and focus management
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      // Focus the modal for screen readers
+      modalRef.current?.focus();
+    }
+    
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const isActive = activeSession?.type === activityType;
@@ -313,14 +331,25 @@ export default function ActivityDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div 
+        ref={modalRef}
+        className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+        tabIndex={-1}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-3">
             <span className="text-2xl">{getActivityIcon()}</span>
             <div>
-              <h3 className="text-lg font-semibold">{getActivityTitle()}</h3>
+              <h3 id="modal-title" className="text-lg font-semibold">{getActivityTitle()}</h3>
               <p className="text-sm text-gray-600">Activity details and information</p>
             </div>
           </div>
