@@ -47,6 +47,22 @@ Current Active Sessions: ${activeSessions.length > 0 ?
   // Initialize interaction tracking
   let interactionId: string | null = null;
   let associatedActivityId: string | null = null;
+  let functionCalls: Array<{
+    function: string;
+    arguments: any;
+    result: any;
+    timestamp: string;
+  }> = [];
+
+  // Helper function to track function calls
+  const trackFunctionCall = (functionName: string, args: any, result: any) => {
+    functionCalls.push({
+      function: functionName,
+      arguments: args,
+      result: result,
+      timestamp: new Date().toISOString()
+    });
+  };
 
   try {
     // Log the initial interaction
@@ -72,13 +88,17 @@ Current Active Sessions: ${activeSessions.length > 0 ?
         execute: async ({ targetTime, reasoning }) => {
           try {
             const timeObject = new Date(targetTime);
-            return { 
+            const result = { 
               utcTime: timeObject.toISOString(),
               localTime: targetTime,
               reasoning: reasoning
             };
+            trackFunctionCall('parseUserTime', { targetTime, reasoning }, result);
+            return result;
           } catch (error) {
-            return { error: `Invalid time format: ${targetTime}. ${error instanceof Error ? error.message : 'Unknown error'}` };
+            const errorResult = { error: `Invalid time format: ${targetTime}. ${error instanceof Error ? error.message : 'Unknown error'}` };
+            trackFunctionCall('parseUserTime', { targetTime, reasoning }, errorResult);
+            return errorResult;
           }
         },
       }),
@@ -91,16 +111,21 @@ Current Active Sessions: ${activeSessions.length > 0 ?
         execute: async ({ date }) => {
           try {
             if (!childId) {
-              return { error: 'No child selected' };
+              const errorResult = { error: 'No child selected' };
+              trackFunctionCall('getDailySummary', { date }, errorResult);
+              return errorResult;
             }
 
             const summary = await getDailySummary({ 
               childId, 
               ...(date && { date: new Date(date) })
             });
+            trackFunctionCall('getDailySummary', { date }, summary);
             return summary;
           } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Unknown error' };
+            const errorResult = { error: error instanceof Error ? error.message : 'Unknown error' };
+            trackFunctionCall('getDailySummary', { date }, errorResult);
+            return errorResult;
           }
         },
       }),
@@ -115,7 +140,9 @@ Current Active Sessions: ${activeSessions.length > 0 ?
         execute: async ({ type, limit, hoursBack }) => {
           try {
             if (!childId) {
-              return { error: 'No child selected' };
+              const errorResult = { error: 'No child selected' };
+              trackFunctionCall('getRecentActivities', { type, limit, hoursBack }, errorResult);
+              return errorResult;
             }
 
             const activities = await getRecentActivities({
@@ -124,9 +151,13 @@ Current Active Sessions: ${activeSessions.length > 0 ?
               limit,
               hoursBack
             });
-            return { activities, count: activities.length };
+            const result = { activities, count: activities.length };
+            trackFunctionCall('getRecentActivities', { type, limit, hoursBack }, result);
+            return result;
           } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Unknown error' };
+            const errorResult = { error: error instanceof Error ? error.message : 'Unknown error' };
+            trackFunctionCall('getRecentActivities', { type, limit, hoursBack }, errorResult);
+            return errorResult;
           }
         },
       }),
@@ -140,7 +171,9 @@ Current Active Sessions: ${activeSessions.length > 0 ?
         execute: async ({ type, startTimeUTC }) => {
           try {
             if (!childId || !userId) {
-              return { error: 'Missing child or user information' };
+              const errorResult = { error: 'Missing child or user information' };
+              trackFunctionCall('startActivity', { type, startTimeUTC }, errorResult);
+              return errorResult;
             }
 
             const activity = await startActivity({
@@ -153,9 +186,13 @@ Current Active Sessions: ${activeSessions.length > 0 ?
             // Associate this activity with the AI interaction
             associatedActivityId = activity.id;
             
-            return { success: true, activity };
+            const result = { success: true, activity };
+            trackFunctionCall('startActivity', { type, startTimeUTC }, result);
+            return result;
           } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Unknown error' };
+            const errorResult = { error: error instanceof Error ? error.message : 'Unknown error' };
+            trackFunctionCall('startActivity', { type, startTimeUTC }, errorResult);
+            return errorResult;
           }
         },
       }),
@@ -187,9 +224,17 @@ Current Active Sessions: ${activeSessions.length > 0 ?
           feedType, volume, unit, leftDuration, rightDuration,
           contents, diaperVolume, hasRash, pooColor, pooTexture 
         }) => {
+          const args = { 
+            type, startTimeUTC, endTimeUTC, duration,
+            feedType, volume, unit, leftDuration, rightDuration,
+            contents, diaperVolume, hasRash, pooColor, pooTexture 
+          };
+          
           try {
             if (!childId || !userId) {
-              return { error: 'Missing child or user information' };
+              const errorResult = { error: 'Missing child or user information' };
+              trackFunctionCall('logActivity', args, errorResult);
+              return errorResult;
             }
 
             // Calculate times
@@ -266,7 +311,9 @@ Current Active Sessions: ${activeSessions.length > 0 ?
               // Associate this activity with the AI interaction
               associatedActivityId = activity.id;
               
-              return { success: true, activity, logged: 'instant' };
+              const result = { success: true, activity, logged: 'instant' };
+              trackFunctionCall('logActivity', args, result);
+              return result;
             } else {
               // For activities with duration, insert directly with both start and end times
               const [activity] = await db.insert(activities).values({
@@ -281,10 +328,14 @@ Current Active Sessions: ${activeSessions.length > 0 ?
               // Associate this activity with the AI interaction
               associatedActivityId = activity.id;
               
-              return { success: true, activity, logged: 'duration' };
+              const result = { success: true, activity, logged: 'duration' };
+              trackFunctionCall('logActivity', args, result);
+              return result;
             }
           } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Unknown error' };
+            const errorResult = { error: error instanceof Error ? error.message : 'Unknown error' };
+            trackFunctionCall('logActivity', args, errorResult);
+            return errorResult;
           }
         },
       }),
@@ -424,10 +475,11 @@ Key principles:
           // Get the final response text
           const responseText = await result.text;
           
-          // Update the interaction with the AI response and activity association
+          // Update the interaction with the AI response, function calls, and activity association
           await db.update(aiInteractions)
             .set({
               aiResponse: responseText,
+              functionCalls: functionCalls.length > 0 ? functionCalls : null,
               ...(associatedActivityId && { activityId: associatedActivityId })
             })
             .where(eq(aiInteractions.id, interactionId));

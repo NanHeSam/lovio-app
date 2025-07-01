@@ -15,6 +15,13 @@
       "when": 1751001865741,
       "tag": "0001_clerk_user_id_text_format",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1751407903919,
+      "tag": "0002_add_function_calls_to_ai_interactions",
+      "breakpoints": true
     }
   ]
 }

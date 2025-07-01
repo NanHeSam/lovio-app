@@ -1,0 +1,1 @@
+ALTER TABLE "ai_interactions" ADD COLUMN "function_calls" jsonb;
