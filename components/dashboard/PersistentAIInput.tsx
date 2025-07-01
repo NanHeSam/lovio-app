@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { Send, Loader2, Bot } from 'lucide-react';
 import { useChat } from 'ai/react';
+import { getLocalTimeWithTimezone } from '@/lib/utils';
 
 interface PersistentAIInputProps {
   userId: string;
@@ -24,7 +24,7 @@ export default function PersistentAIInput({
     body: {
       userId,
       childId,
-      deviceTime: new Date().toISOString(),
+      deviceTime: getLocalTimeWithTimezone(),
     },
     onFinish: (message) => {
       const hasMutationTools = message.toolInvocations?.some(tool => 

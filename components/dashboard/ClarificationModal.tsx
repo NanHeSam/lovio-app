@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, Bot, Send, Loader2 } from 'lucide-react';
 import { useChat } from 'ai/react';
+import { getLocalTimeWithTimezone } from '@/lib/utils';
 
 interface ClarificationModalProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ export default function ClarificationModal({
     body: {
       userId: context?.userId || '',
       childId: context?.childId || '',
-      deviceTime: new Date().toISOString(),
+      deviceTime: getLocalTimeWithTimezone(),
     },
     initialMessages: context?.messages || [], // Continue from where we left off
     onFinish: (message) => {
