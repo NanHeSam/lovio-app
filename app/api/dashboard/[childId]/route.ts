@@ -4,7 +4,7 @@ import { getDashboardData } from '@/lib/db/queries';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { childId: string } }
+  { params }: { params: Promise<{ childId: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -13,7 +13,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { childId } = params;
+    const { childId } = await params;
     
     if (!childId) {
       return NextResponse.json({ error: 'Child ID is required' }, { status: 400 });

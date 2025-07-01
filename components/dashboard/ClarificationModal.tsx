@@ -26,7 +26,7 @@ export default function ClarificationModal({
   const [followUpInput, setFollowUpInput] = useState('');
 
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
-    api: '/api/chat',
+    api: '/api/ai',
     body: {
       userId: context?.userId || '',
       childId: context?.childId || '',

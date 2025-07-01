@@ -468,6 +468,30 @@ export async function getDashboardData(userId: string, childId: string) {
 }
 
 // ============================================================================
+// USER CHILD MANAGEMENT
+// ============================================================================
+
+/**
+ * Get the first child for a user (for simple single-child scenarios)
+ */
+export async function getFirstChild(userId: string) {
+  const userChild = await db
+    .select({
+      id: children.id,
+      name: children.name,
+      birthDate: children.birthDate,
+      gender: children.gender,
+      avatarUrl: children.avatarUrl,
+    })
+    .from(userChildren)
+    .innerJoin(children, eq(userChildren.childId, children.id))
+    .where(eq(userChildren.userId, userId))
+    .limit(1);
+    
+  return userChild[0] || null;
+}
+
+// ============================================================================
 // AI INTERACTION LOGGING
 // ============================================================================
 

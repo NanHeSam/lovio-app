@@ -20,7 +20,7 @@ export default function PersistentAIInput({
   onNeedsClarification 
 }: PersistentAIInputProps) {
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages, setInput } = useChat({
-    api: '/api/chat',
+    api: '/api/ai',
     body: {
       userId,
       childId,
