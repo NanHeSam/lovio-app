@@ -1,9 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, DiaperDetails } from "@/lib/db/types";
-import { formatTimeAgo } from "@/lib/mock-data";
+import { RecentActivity, DiaperDetails } from "@/lib/db/types";
 
 interface DiaperCardProps {
-  lastDiaper?: Activity;
+  lastDiaper?: RecentActivity;
 }
 
 export default function DiaperCard({ lastDiaper }: DiaperCardProps) {
@@ -34,7 +33,7 @@ export default function DiaperCard({ lastDiaper }: DiaperCardProps) {
         <CardContent>
           <div className="space-y-2">
             <div className="text-sm text-gray-600">
-              {formatTimeAgo(lastDiaper.startTime)}
+              {lastDiaper.ago}
             </div>
             <div className="flex items-center gap-2">
               <span className="text-lg">

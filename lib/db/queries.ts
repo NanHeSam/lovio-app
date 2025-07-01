@@ -407,3 +407,62 @@ export async function validateChildAccess(userId: string, childId: string): Prom
   
   return !!relationship;
 }
+
+/**
+ * Get dashboard data for a child (active sessions + last activities)
+ */
+export async function getDashboardData(userId: string, childId: string) {
+  // Validate access
+  const hasAccess = await validateChildAccess(userId, childId);
+  if (!hasAccess) {
+    throw new Error('Access denied: User does not have permission to view this child');
+  }
+
+  // Get active sessions
+  const activeSessions = await getActiveSessions({ childId, userId });
+
+  // Get last activity for each type (only if no active session)
+  const hasActiveSleep = activeSessions.some(s => s.type === 'sleep');
+  const hasActiveFeed = activeSessions.some(s => s.type === 'feed');
+
+  const lastActivitiesPromises = [];
+  
+  if (!hasActiveSleep) {
+    lastActivitiesPromises.push(
+      getRecentActivities({ childId, type: 'sleep', limit: 1 }).then(res => ({ type: 'sleep', activity: res[0] }))
+    );
+  }
+  
+  if (!hasActiveFeed) {
+    lastActivitiesPromises.push(
+      getRecentActivities({ childId, type: 'feed', limit: 1 }).then(res => ({ type: 'feed', activity: res[0] }))
+    );
+  }
+  
+  // Always get last diaper (instant activity, no active sessions)
+  lastActivitiesPromises.push(
+    getRecentActivities({ childId, type: 'diaper', limit: 1 }).then(res => ({ type: 'diaper', activity: res[0] }))
+  );
+
+  const lastActivitiesResults = await Promise.all(lastActivitiesPromises);
+  
+  // Transform results
+  const result: {
+    activeSessions: ActiveSession[];
+    lastSleep?: RecentActivity;
+    lastFeed?: RecentActivity;
+    lastDiaper?: RecentActivity;
+  } = {
+    activeSessions,
+  };
+
+  lastActivitiesResults.forEach(({ type, activity }) => {
+    if (activity) {
+      if (type === 'sleep') result.lastSleep = activity;
+      else if (type === 'feed') result.lastFeed = activity;
+      else if (type === 'diaper') result.lastDiaper = activity;
+    }
+  });
+
+  return result;
+}

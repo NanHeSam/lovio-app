@@ -1,11 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, ActiveSession, FeedDetails } from "@/lib/db/types";
-import { formatTimeAgo, getDurationMinutes } from "@/lib/mock-data";
+import { RecentActivity, ActiveSession, FeedDetails } from "@/lib/db/types";
 import LiveTimer from "./LiveTimer";
+
+// Helper function to get duration in minutes
+const getDurationMinutes = (startTime: Date, endTime?: Date | null): number => {
+  const end = endTime || new Date();
+  return Math.floor((end.getTime() - startTime.getTime()) / (1000 * 60));
+};
 
 interface FeedCardProps {
   activeSession?: ActiveSession;
-  lastFeed?: Activity;
+  lastFeed?: RecentActivity;
 }
 
 export default function FeedCard({ activeSession, lastFeed }: FeedCardProps) {
@@ -29,7 +34,7 @@ export default function FeedCard({ activeSession, lastFeed }: FeedCardProps) {
               className="text-2xl font-bold text-blue-600"
             />
             <div className="text-sm text-gray-600">
-              Started {formatTimeAgo(activeSession.startTime)}
+              Started {activeSession.durationMinutes < 60 ? `${activeSession.durationMinutes}m ago` : `${Math.floor(activeSession.durationMinutes / 60)}h ${activeSession.durationMinutes % 60}m ago`}
             </div>
             {details?.type === 'nursing' && (
               <div className="text-sm text-gray-500">
@@ -57,7 +62,7 @@ export default function FeedCard({ activeSession, lastFeed }: FeedCardProps) {
         <CardContent>
           <div className="space-y-2">
             <div className="text-sm text-gray-600">
-              {formatTimeAgo(lastFeed.startTime)}
+              {lastFeed.ago}
             </div>
             <div className="text-lg font-semibold">
               {details?.type === 'nursing' ? (

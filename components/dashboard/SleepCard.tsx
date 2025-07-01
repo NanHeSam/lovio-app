@@ -1,11 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, ActiveSession } from "@/lib/db/types";
-import { formatTimeAgo, getDurationMinutes } from "@/lib/mock-data";
+import { RecentActivity, ActiveSession } from "@/lib/db/types";
 import LiveTimer from "./LiveTimer";
+
+// Helper function to get duration in minutes
+const getDurationMinutes = (startTime: Date, endTime?: Date | null): number => {
+  const end = endTime || new Date();
+  return Math.floor((end.getTime() - startTime.getTime()) / (1000 * 60));
+};
 
 interface SleepCardProps {
   activeSession?: ActiveSession;
-  lastSleep?: Activity;
+  lastSleep?: RecentActivity;
 }
 
 export default function SleepCard({ activeSession, lastSleep }: SleepCardProps) {
@@ -26,7 +31,7 @@ export default function SleepCard({ activeSession, lastSleep }: SleepCardProps) 
               className="text-2xl font-bold text-purple-600"
             />
             <div className="text-sm text-gray-600">
-              Started {formatTimeAgo(activeSession.startTime)}
+              Started {activeSession.durationMinutes < 60 ? `${activeSession.durationMinutes}m ago` : `${Math.floor(activeSession.durationMinutes / 60)}h ${activeSession.durationMinutes % 60}m ago`}
             </div>
           </div>
         </CardContent>
@@ -49,7 +54,7 @@ export default function SleepCard({ activeSession, lastSleep }: SleepCardProps) 
         <CardContent>
           <div className="space-y-2">
             <div className="text-sm text-gray-600">
-              {formatTimeAgo(lastSleep.startTime)}
+              {lastSleep.ago}
             </div>
             <div className="text-lg font-semibold">
               Slept for {hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`}
