@@ -3,6 +3,10 @@ import { getCurrentUserWithChildren } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { userChildren, children } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import FeedCard from '@/components/dashboard/FeedCard';
+import SleepCard from '@/components/dashboard/SleepCard';
+import DiaperCard from '@/components/dashboard/DiaperCard';
+import { mockDashboardData } from '@/lib/mock-data';
 
 export default async function DashboardPage() {
   const user = await getCurrentUserWithChildren();
@@ -101,20 +105,22 @@ export default async function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <button className="p-2 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
-                        <div className="text-lg">😴</div>
-                        <div className="text-xs text-gray-600">Sleep</div>
-                      </button>
-                      <button className="p-2 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
-                        <div className="text-lg">🍼</div>
-                        <div className="text-xs text-gray-600">Feed</div>
-                      </button>
-                      <button className="p-2 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
-                        <div className="text-lg">👶</div>
-                        <div className="text-xs text-gray-600">Diaper</div>
-                      </button>
+                  <div className="mt-6 space-y-4">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                      Recent Activities
+                    </h4>
+                    <div className="grid grid-cols-1 gap-4">
+                      <SleepCard 
+                        activeSession={mockDashboardData.activeSleepSession.activeSessions.find(s => s.type === 'sleep')}
+                        lastSleep={mockDashboardData.noActiveSessions.lastSleep}
+                      />
+                      <FeedCard 
+                        activeSession={mockDashboardData.activeFeedSession.activeSessions.find(s => s.type === 'feed')}
+                        lastFeed={mockDashboardData.noActiveSessions.lastFeed}
+                      />
+                      <DiaperCard 
+                        lastDiaper={mockDashboardData.noActiveSessions.lastDiaper}
+                      />
                     </div>
                   </div>
                 </div>
