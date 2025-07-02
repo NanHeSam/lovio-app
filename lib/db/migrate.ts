@@ -10,7 +10,29 @@ export async function runMigrations() {
   try {
     console.log('🔄 Checking for database migrations...');
     
-    const migrationsFolder = join(process.cwd(), 'drizzle');
+    // Try multiple possible paths for the drizzle folder
+    const possiblePaths = [
+      join(process.cwd(), 'drizzle'),
+      join(__dirname, '../../drizzle'),
+      join(process.cwd(), '.next/server/chunks/drizzle'),
+      join(process.cwd(), 'node_modules/.prisma/client/drizzle') // fallback
+    ];
+    
+    let migrationsFolder = possiblePaths[0]; // default
+    
+    // Check which path exists
+    const fs = await import('fs');
+    for (const path of possiblePaths) {
+      try {
+        if (fs.existsSync(join(path, 'meta/_journal.json'))) {
+          migrationsFolder = path;
+          console.log(`📁 Found migrations at: ${migrationsFolder}`);
+          break;
+        }
+      } catch {
+        // continue checking other paths
+      }
+    }
     
     await migrate(db, { 
       migrationsFolder,
