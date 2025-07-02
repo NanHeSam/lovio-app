@@ -8,9 +8,11 @@ import {
   getRecentActivities, 
   startActivity,
   updateActivity,
-  logInstantActivity
+  logInstantActivity,
+  logAIInteraction
 } from '@/lib/db/queries';
-import { db, activities } from '@/lib/db';
+import { db, activities, aiInteractions } from '@/lib/db';
+import { eq } from 'drizzle-orm';
 import type { ActivityDetails, SleepDetails, DiaperDetails, BottleDetails, NursingDetails } from '@/lib/db/types';
 
 export interface ChatRequest {
@@ -22,6 +24,10 @@ export interface ChatRequest {
 
 export async function processChatRequest(request: ChatRequest) {
   const { messages, userId, childId, deviceTime } = request;
+
+  // Get the user's input message (last message should be from user)
+  const userMessage = messages[messages.length - 1];
+  const userInput = userMessage?.role === 'user' ? userMessage.content : '';
 
   // Pre-fetch active sessions to include in context (save tokens)
   const activeSessions = await getActiveSessions(childId ? { childId } : undefined);
@@ -38,11 +44,56 @@ Current Active Sessions: ${activeSessions.length > 0 ?
 
   const messagesWithContext = [contextMessage, ...messages];
 
-  return await streamText({
+  // Initialize interaction tracking
+  let interactionId: string | null = null;
+  let associatedActivityId: string | null = null;
+  const functionCalls: Array<{
+    function: string;
+    arguments: any;
+    result: any;
+    timestamp: string;
+  }> = [];
+
+  // Helper function to track function calls
+  const trackFunctionCall = (functionName: string, args: any, result: any) => {
+    functionCalls.push({
+      function: functionName,
+      arguments: args,
+      result: result,
+      timestamp: new Date().toISOString()
+    });
+
+    // If this function call resulted in an activity creation, log the linkage
+    if (result?.activity?.id && interactionId) {
+      console.log(`Function ${functionName} created activity ${result.activity.id} in LangSmith trace ${interactionId}`);
+    }
+  };
+
+  try {
+    // Log the initial interaction
+    const interaction = await logAIInteraction({
+      userId,
+      childId,
+      userInput,
+    });
+    interactionId = interaction.id;
+
+    const result = streamText({
     model: openai('gpt-4.1'),
     messages: messagesWithContext,
     maxSteps: 5,
-    experimental_telemetry: AISDKExporter.getSettings(),
+    experimental_telemetry: AISDKExporter.getSettings({
+      runId: interactionId,
+      metadata: {
+        userId,
+        childId,
+        userInput: userInput.substring(0, 100), // First 100 chars for context
+        environment: process.env.VERCEL_ENV || 'development', // preview, production, development
+        deployment: process.env.VERCEL_URL ? 'vercel' : 'local',
+        region: process.env.VERCEL_REGION || 'local',
+        gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'unknown',
+      }
+    }),
     tools: {
       parseUserTime: tool({
         description: 'Convert AI-determined time to UTC for database storage. Call this when user mentions any time reference.',
@@ -53,13 +104,17 @@ Current Active Sessions: ${activeSessions.length > 0 ?
         execute: async ({ targetTime, reasoning }) => {
           try {
             const timeObject = new Date(targetTime);
-            return { 
+            const result = { 
               utcTime: timeObject.toISOString(),
               localTime: targetTime,
               reasoning: reasoning
             };
+            trackFunctionCall('parseUserTime', { targetTime, reasoning }, result);
+            return result;
           } catch (error) {
-            return { error: `Invalid time format: ${targetTime}. ${error instanceof Error ? error.message : 'Unknown error'}` };
+            const errorResult = { error: `Invalid time format: ${targetTime}. ${error instanceof Error ? error.message : 'Unknown error'}` };
+            trackFunctionCall('parseUserTime', { targetTime, reasoning }, errorResult);
+            return errorResult;
           }
         },
       }),
@@ -72,16 +127,21 @@ Current Active Sessions: ${activeSessions.length > 0 ?
         execute: async ({ date }) => {
           try {
             if (!childId) {
-              return { error: 'No child selected' };
+              const errorResult = { error: 'No child selected' };
+              trackFunctionCall('getDailySummary', { date }, errorResult);
+              return errorResult;
             }
 
             const summary = await getDailySummary({ 
               childId, 
               ...(date && { date: new Date(date) })
             });
+            trackFunctionCall('getDailySummary', { date }, summary);
             return summary;
           } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Unknown error' };
+            const errorResult = { error: error instanceof Error ? error.message : 'Unknown error' };
+            trackFunctionCall('getDailySummary', { date }, errorResult);
+            return errorResult;
           }
         },
       }),
@@ -96,7 +156,9 @@ Current Active Sessions: ${activeSessions.length > 0 ?
         execute: async ({ type, limit, hoursBack }) => {
           try {
             if (!childId) {
-              return { error: 'No child selected' };
+              const errorResult = { error: 'No child selected' };
+              trackFunctionCall('getRecentActivities', { type, limit, hoursBack }, errorResult);
+              return errorResult;
             }
 
             const activities = await getRecentActivities({
@@ -105,9 +167,13 @@ Current Active Sessions: ${activeSessions.length > 0 ?
               limit,
               hoursBack
             });
-            return { activities, count: activities.length };
+            const result = { activities, count: activities.length };
+            trackFunctionCall('getRecentActivities', { type, limit, hoursBack }, result);
+            return result;
           } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Unknown error' };
+            const errorResult = { error: error instanceof Error ? error.message : 'Unknown error' };
+            trackFunctionCall('getRecentActivities', { type, limit, hoursBack }, errorResult);
+            return errorResult;
           }
         },
       }),
@@ -121,7 +187,9 @@ Current Active Sessions: ${activeSessions.length > 0 ?
         execute: async ({ type, startTimeUTC }) => {
           try {
             if (!childId || !userId) {
-              return { error: 'Missing child or user information' };
+              const errorResult = { error: 'Missing child or user information' };
+              trackFunctionCall('startActivity', { type, startTimeUTC }, errorResult);
+              return errorResult;
             }
 
             const activity = await startActivity({
@@ -130,9 +198,17 @@ Current Active Sessions: ${activeSessions.length > 0 ?
               type,
               ...(startTimeUTC && { startTime: new Date(startTimeUTC) })
             });
-            return { success: true, activity };
+            
+            // Associate this activity with the AI interaction
+            associatedActivityId = activity.id;
+            
+            const result = { success: true, activity };
+            trackFunctionCall('startActivity', { type, startTimeUTC }, result);
+            return result;
           } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Unknown error' };
+            const errorResult = { error: error instanceof Error ? error.message : 'Unknown error' };
+            trackFunctionCall('startActivity', { type, startTimeUTC }, errorResult);
+            return errorResult;
           }
         },
       }),
@@ -164,9 +240,17 @@ Current Active Sessions: ${activeSessions.length > 0 ?
           feedType, volume, unit, leftDuration, rightDuration,
           contents, diaperVolume, hasRash, pooColor, pooTexture 
         }) => {
+          const args = { 
+            type, startTimeUTC, endTimeUTC, duration,
+            feedType, volume, unit, leftDuration, rightDuration,
+            contents, diaperVolume, hasRash, pooColor, pooTexture 
+          };
+          
           try {
             if (!childId || !userId) {
-              return { error: 'Missing child or user information' };
+              const errorResult = { error: 'Missing child or user information' };
+              trackFunctionCall('logActivity', args, errorResult);
+              return errorResult;
             }
 
             // Calculate times
@@ -239,7 +323,13 @@ Current Active Sessions: ${activeSessions.length > 0 ?
                 time: activityStartTime,
                 details
               });
-              return { success: true, activity, logged: 'instant' };
+              
+              // Associate this activity with the AI interaction
+              associatedActivityId = activity.id;
+              
+              const result = { success: true, activity, logged: 'instant' };
+              trackFunctionCall('logActivity', args, result);
+              return result;
             } else {
               // For activities with duration, insert directly with both start and end times
               const [activity] = await db.insert(activities).values({
@@ -251,10 +341,17 @@ Current Active Sessions: ${activeSessions.length > 0 ?
                 details
               }).returning();
               
-              return { success: true, activity, logged: 'duration' };
+              // Associate this activity with the AI interaction
+              associatedActivityId = activity.id;
+              
+              const result = { success: true, activity, logged: 'duration' };
+              trackFunctionCall('logActivity', args, result);
+              return result;
             }
           } catch (error) {
-            return { error: error instanceof Error ? error.message : 'Unknown error' };
+            const errorResult = { error: error instanceof Error ? error.message : 'Unknown error' };
+            trackFunctionCall('logActivity', args, errorResult);
+            return errorResult;
           }
         },
       }),
@@ -331,6 +428,9 @@ Current Active Sessions: ${activeSessions.length > 0 ?
               ...(details && { details })
             });
             
+            // Associate this activity with the AI interaction
+            associatedActivityId = activityId;
+            
             return { success: true, activity };
           } catch (error) {
             return { error: error instanceof Error ? error.message : 'Unknown error' };
@@ -378,8 +478,58 @@ UPDATE scenarios (replaces old endActivity tool):
 
 Key principles:
 - Use intelligent judgment for "recent" vs "stale" 
+- answer the question in very concise manner, 1-2 short sentences max. 
 - Smart updates over unnecessary conflicts
 - Ask clarification only for genuine ambiguity
 - Always confirm with local time context`,
-  });
+    });
+
+    // Handle completion to update the interaction record
+    result.finishReason.then(async () => {
+      try {
+        if (interactionId) {
+          // Get the final response text
+          const responseText = await result.text;
+          
+          // Update the interaction with the AI response, function calls, and activity association
+          await db.update(aiInteractions)
+            .set({
+              aiResponse: responseText,
+              functionCalls: functionCalls.length > 0 ? functionCalls : null,
+              ...(associatedActivityId && { activityId: associatedActivityId })
+            })
+            .where(eq(aiInteractions.id, interactionId));
+
+          // Note: LangSmith trace is already linked via runId = interactionId
+          // Activity ID is now available in our database record and can be cross-referenced
+          if (associatedActivityId) {
+            console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId} and LangSmith trace`);
+          }
+        }
+      } catch (error) {
+        console.error('Error updating AI interaction:', error);
+      }
+    }).catch((error) => {
+      console.error('Error in finishReason handler:', error);
+    });
+
+    return result;
+    
+  } catch (error) {
+    // Log error in the interaction record
+    if (interactionId) {
+      try {
+        await db.update(aiInteractions)
+          .set({
+            errorMessage: error instanceof Error ? error.message : 'Unknown error'
+          })
+          .where(eq(aiInteractions.id, interactionId));
+      } catch (updateError) {
+        console.error('Error updating AI interaction with error:', updateError);
+      }
+    }
+    
+    // Re-throw the error
+    throw error;
+  }
 }

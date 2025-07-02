@@ -1,6 +1,7 @@
 import { db } from './index';
-import { activities, children, users, userChildren } from './schema';
+import { activities, children, users, userChildren, aiInteractions } from './schema';
 import { eq, and, isNull, desc, gte, lte } from 'drizzle-orm';
+import { formatTimeAgo } from '../utils/datetime';
 import type { 
   ActivityType, 
   ActivityDetails,
@@ -184,6 +185,7 @@ export async function getActiveSessions(params?: {
       childId: activities.childId,
       childName: children.name,
       startTime: activities.startTime,
+      details: activities.details,
     })
     .from(activities)
     .innerJoin(children, eq(activities.childId, children.id))
@@ -203,7 +205,8 @@ export async function getActiveSessions(params?: {
     childId: result.childId,
     childName: result.childName,
     startTime: result.startTime,
-    durationMinutes: Math.floor((Date.now() - result.startTime.getTime()) / 60000)
+    durationMinutes: Math.floor((Date.now() - result.startTime.getTime()) / 60000),
+    details: result.details
   }));
 }
 
@@ -334,7 +337,7 @@ export async function getRecentActivities(params: {
     startTime: result.startTime,
     endTime: result.endTime,
     details: result.details,
-    ago: formatTimeAgo(result.startTime)
+    ago: formatTimeAgo(Math.floor((Date.now() - result.startTime.getTime()) / 60000))
   }));
 }
 
@@ -369,26 +372,6 @@ export async function getActivityById(activityId: string): Promise<ActivityWithC
 // UTILITY FUNCTIONS
 // ============================================================================
 
-/**
- * Format time ago in human readable format
- */
-function formatTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  
-  if (diffMins < 1) {
-    return 'just now';
-  } else if (diffMins < 60) {
-    return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
-  } else if (diffHours < 24) {
-    return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
-  } else {
-    return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
-  }
-}
 
 /**
  * Validate user has permission to access child
@@ -406,4 +389,172 @@ export async function validateChildAccess(userId: string, childId: string): Prom
     .limit(1);
   
   return !!relationship;
+}
+
+/**
+ * Get dashboard data for a child (active sessions + last activities)
+ */
+export async function getDashboardData(userId: string, childId: string) {
+  // Validate access
+  const hasAccess = await validateChildAccess(userId, childId);
+  if (!hasAccess) {
+    throw new Error('Access denied: User does not have permission to view this child');
+  }
+
+  // Get active sessions
+  const activeSessions = await getActiveSessions({ childId, userId });
+
+  // Get last activity for each type (only if no active session)
+  const hasActiveSleep = activeSessions.some(s => s.type === 'sleep');
+  const hasActiveFeed = activeSessions.some(s => s.type === 'feed');
+
+  const lastActivitiesPromises = [];
+  
+  if (!hasActiveSleep) {
+    lastActivitiesPromises.push(
+      getRecentActivities({ childId, type: 'sleep', limit: 1 }).then(res => ({ type: 'sleep', activity: res[0] }))
+    );
+  }
+  
+  if (!hasActiveFeed) {
+    lastActivitiesPromises.push(
+      getRecentActivities({ childId, type: 'feed', limit: 1 }).then(res => ({ type: 'feed', activity: res[0] }))
+    );
+  }
+  
+  // Always get last diaper (instant activity, no active sessions)
+  lastActivitiesPromises.push(
+    getRecentActivities({ childId, type: 'diaper', limit: 1 }).then(res => ({ type: 'diaper', activity: res[0] }))
+  );
+
+  const lastActivitiesResults = await Promise.all(lastActivitiesPromises);
+  
+  // Transform results
+  const result: {
+    activeSessions: ActiveSession[];
+    lastSleep?: RecentActivity;
+    lastFeed?: RecentActivity;
+    lastDiaper?: RecentActivity;
+  } = {
+    activeSessions,
+  };
+
+  lastActivitiesResults.forEach(({ type, activity }) => {
+    if (activity) {
+      if (type === 'sleep') result.lastSleep = activity;
+      else if (type === 'feed') result.lastFeed = activity;
+      else if (type === 'diaper') result.lastDiaper = activity;
+    }
+  });
+
+  return result;
+}
+
+// ============================================================================
+// USER CHILD MANAGEMENT
+// ============================================================================
+
+/**
+ * Get the first child for a user (for simple single-child scenarios)
+ */
+export async function getFirstChild(userId: string) {
+  const userChild = await db
+    .select({
+      id: children.id,
+      name: children.name,
+      birthDate: children.birthDate,
+      gender: children.gender,
+      avatarUrl: children.avatarUrl,
+    })
+    .from(userChildren)
+    .innerJoin(children, eq(userChildren.childId, children.id))
+    .where(eq(userChildren.userId, userId))
+    .limit(1);
+    
+  return userChild[0] || null;
+}
+
+// ============================================================================
+// AI INTERACTION LOGGING
+// ============================================================================
+
+/**
+ * Log an AI interaction for debugging and analytics
+ */
+export async function logAIInteraction(params: {
+  userId: string;
+  childId?: string;
+  userInput: string;
+  aiResponse?: string;
+  activityId?: string;
+  errorMessage?: string;
+}) {
+  const { userId, childId, userInput, aiResponse, activityId, errorMessage } = params;
+  
+  const [interaction] = await db.insert(aiInteractions).values({
+    userId,
+    childId: childId || null,
+    userInput,
+    aiResponse: aiResponse || null,
+    activityId: activityId || null,
+    errorMessage: errorMessage || null,
+  }).returning();
+  
+  return interaction;
+}
+
+/**
+ * Get AI interactions with activity correlation and LangSmith trace info
+ */
+export async function getAIInteractionsWithTraceInfo(params: {
+  userId?: string;
+  childId?: string;
+  activityId?: string;
+  limit?: number;
+}) {
+  const { userId, childId, activityId, limit = 50 } = params;
+  
+  const whereConditions = [];
+  
+  if (userId) {
+    whereConditions.push(eq(aiInteractions.userId, userId));
+  }
+  
+  if (childId) {
+    whereConditions.push(eq(aiInteractions.childId, childId));
+  }
+  
+  if (activityId) {
+    whereConditions.push(eq(aiInteractions.activityId, activityId));
+  }
+
+  const interactions = await db
+    .select({
+      id: aiInteractions.id,
+      userId: aiInteractions.userId,
+      childId: aiInteractions.childId,
+      userInput: aiInteractions.userInput,
+      aiResponse: aiInteractions.aiResponse,
+      functionCalls: aiInteractions.functionCalls,
+      activityId: aiInteractions.activityId,
+      errorMessage: aiInteractions.errorMessage,
+      createdAt: aiInteractions.createdAt,
+      // Activity details if linked
+      activityType: activities.type,
+      activityStartTime: activities.startTime,
+      activityEndTime: activities.endTime,
+      activityDetails: activities.details,
+    })
+    .from(aiInteractions)
+    .leftJoin(activities, eq(aiInteractions.activityId, activities.id))
+    .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+    .orderBy(desc(aiInteractions.createdAt))
+    .limit(limit);
+
+  // Add LangSmith trace correlation info
+  return interactions.map(interaction => ({
+    ...interaction,
+    langsmithTraceId: interaction.id, // AI interaction ID = LangSmith run ID
+    langsmithTraceUrl: `https://smith.langchain.com/o/YOUR_ORG_ID/p/lovio-app/r/${interaction.id}`, // Customize with actual org ID
+  }));
 }

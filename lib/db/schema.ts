@@ -116,6 +116,7 @@ export const aiInteractions = pgTable('ai_interactions', {
   
   userInput: text('user_input').notNull(),
   aiResponse: text('ai_response'),
+  functionCalls: jsonb('function_calls'), // Store function calls as JSONB array
   activityId: uuid('activity_id').references(() => activities.id, { onDelete: 'cascade' }),
   errorMessage: text('error_message'),
   
