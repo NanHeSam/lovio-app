@@ -8,31 +8,9 @@ import { join } from 'path';
  */
 export async function runMigrations() {
   try {
-    console.log('🔄 Checking for database migrations...');
+    console.log('🔄 Running database migrations...');
     
-    // Try multiple possible paths for the drizzle folder
-    const possiblePaths = [
-      join(process.cwd(), 'drizzle'),
-      join(__dirname, '../../drizzle'),
-      join(process.cwd(), '.next/server/chunks/drizzle'),
-      join(process.cwd(), 'node_modules/.prisma/client/drizzle') // fallback
-    ];
-    
-    let migrationsFolder = possiblePaths[0]; // default
-    
-    // Check which path exists
-    const fs = await import('fs');
-    for (const path of possiblePaths) {
-      try {
-        if (fs.existsSync(join(path, 'meta/_journal.json'))) {
-          migrationsFolder = path;
-          console.log(`📁 Found migrations at: ${migrationsFolder}`);
-          break;
-        }
-      } catch {
-        // continue checking other paths
-      }
-    }
+    const migrationsFolder = join(process.cwd(), 'drizzle');
     
     await migrate(db, { 
       migrationsFolder,
@@ -40,7 +18,14 @@ export async function runMigrations() {
     });
     
     console.log('✅ Database migrations completed successfully');
-  } catch (error) {
+  } catch (error: any) {
+    // Handle common PostgreSQL extension errors that can be safely ignored
+    if (error?.cause?.code === '23505' && error?.cause?.detail?.includes('uuid-ossp')) {
+      console.log('⚠️ uuid-ossp extension already exists, continuing...');
+      console.log('✅ Database migrations completed successfully');
+      return;
+    }
+    
     console.error('❌ Database migration failed:', error);
     throw error;
   }

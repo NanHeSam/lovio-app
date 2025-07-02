@@ -18,12 +18,8 @@ export async function register() {
     await import('./sentry.edge.config');
   }
 
-  // Run database migrations on server side only
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
-    // Dynamic import to avoid running during build
-    const { initializeDatabase } = await import('./lib/db/migrate');
-    await initializeDatabase();
-  }
+  // Note: Database migrations are now run at build time via npm scripts
+  // This ensures the database is ready before deployment
 }
 
 export const onRequestError = Sentry.captureRequestError;
