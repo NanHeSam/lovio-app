@@ -1,6 +1,7 @@
 import { db } from './index';
 import { activities, children, users, userChildren, aiInteractions } from './schema';
 import { eq, and, isNull, desc, gte, lte } from 'drizzle-orm';
+import { formatTimeAgo } from '../utils/datetime';
 import type { 
   ActivityType, 
   ActivityDetails,
@@ -336,7 +337,7 @@ export async function getRecentActivities(params: {
     startTime: result.startTime,
     endTime: result.endTime,
     details: result.details,
-    ago: formatTimeAgo(result.startTime)
+    ago: formatTimeAgo(Math.floor((Date.now() - result.startTime.getTime()) / 60000))
   }));
 }
 
@@ -371,26 +372,6 @@ export async function getActivityById(activityId: string): Promise<ActivityWithC
 // UTILITY FUNCTIONS
 // ============================================================================
 
-/**
- * Format time ago in human readable format
- */
-function formatTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  
-  if (diffMins < 1) {
-    return 'just now';
-  } else if (diffMins < 60) {
-    return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
-  } else if (diffHours < 24) {
-    return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
-  } else {
-    return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
-  }
-}
 
 /**
  * Validate user has permission to access child

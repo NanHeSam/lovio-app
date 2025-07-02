@@ -47,7 +47,7 @@ Current Active Sessions: ${activeSessions.length > 0 ?
   // Initialize interaction tracking
   let interactionId: string | null = null;
   let associatedActivityId: string | null = null;
-  let functionCalls: Array<{
+  const functionCalls: Array<{
     function: string;
     arguments: any;
     result: any;

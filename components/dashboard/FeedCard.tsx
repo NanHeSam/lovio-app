@@ -4,6 +4,11 @@ import LiveTimer from "./LiveTimer";
 import { Button } from "@/components/ui/button";
 import { getDurationMinutes, formatTimeAgo } from "@/lib/utils/datetime";
 
+// Type guard to ensure we really have FeedDetails
+const isFeedDetails = (details: any): details is FeedDetails => {
+  return details != null && typeof details === 'object' && 'type' in details;
+};
+
 interface FeedCardProps {
   activeSession?: ActiveSession;
   lastFeed?: RecentActivity;
@@ -22,7 +27,9 @@ export default function FeedCard({ activeSession, lastFeed, onClick, onStopSessi
   };
   
   if (isActive && activeSession) {
-    const details = activeSession.details as FeedDetails;
+    const details = isFeedDetails(activeSession.details)
+      ? activeSession.details
+      : undefined;
     const feedType = details?.type === 'nursing' ? 'Nursing' : 'Bottle';
     
     return (
@@ -53,7 +60,7 @@ export default function FeedCard({ activeSession, lastFeed, onClick, onStopSessi
               className="text-3xl font-bold text-blue-700 tracking-tight"
             />
             <div className="text-sm text-blue-600 font-medium">
-              Started {activeSession.durationMinutes < 60 ? `${activeSession.durationMinutes}m ago` : `${Math.floor(activeSession.durationMinutes / 60)}h ${activeSession.durationMinutes % 60}m ago`}
+              Started {formatTimeAgo(getDurationMinutes(activeSession.startTime))}
             </div>
             {details?.type === 'nursing' && (
               <div className="text-sm text-blue-600 bg-blue-50 rounded-lg p-2">
@@ -67,7 +74,9 @@ export default function FeedCard({ activeSession, lastFeed, onClick, onStopSessi
   }
 
   if (lastFeed) {
-    const details = lastFeed.details as FeedDetails;
+    const details = isFeedDetails(lastFeed.details)
+      ? lastFeed.details
+      : undefined;
     const feedType = details?.type === 'nursing' ? 'Nursing' : 'Bottle';
     const duration = getDurationMinutes(lastFeed.startTime, lastFeed.endTime);
     
