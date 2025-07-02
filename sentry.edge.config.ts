@@ -4,13 +4,6 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { getSentryConfig } from "./lib/sentry-config";
 
-Sentry.init({
-  dsn: "https://e657c76cc5328bdebb8bed6d8a5c4bea@o4509569243873280.ingest.us.sentry.io/4509571450994688",
-
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
-
-  // Setting this option to true will print useful information to the console while you're setting up Sentry.
-  debug: false,
-});
+Sentry.init(getSentryConfig('edge'));
