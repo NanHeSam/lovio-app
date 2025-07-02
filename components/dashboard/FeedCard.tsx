@@ -2,12 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RecentActivity, ActiveSession, FeedDetails } from "@/lib/db/types";
 import LiveTimer from "./LiveTimer";
 import { Button } from "@/components/ui/button";
-
-// Helper function to get duration in minutes
-const getDurationMinutes = (startTime: Date, endTime?: Date | null): number => {
-  const end = endTime || new Date();
-  return Math.floor((end.getTime() - startTime.getTime()) / (1000 * 60));
-};
+import { getDurationMinutes, formatTimeAgo } from "@/lib/utils/datetime";
 
 interface FeedCardProps {
   activeSession?: ActiveSession;
@@ -96,7 +91,7 @@ export default function FeedCard({ activeSession, lastFeed, onClick, onStopSessi
               {details?.type === 'nursing' ? (
                 `${duration}m`
               ) : (
-                `${(details as any)?.volume || 0}${(details as any)?.unit || 'ml'}`
+                `${details && 'volume' in details ? details.volume || 0 : 0}${details && 'unit' in details ? details.unit || 'ml' : 'ml'}`
               )}
             </div>
             {details?.type === 'nursing' && (

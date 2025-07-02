@@ -75,9 +75,9 @@ export default function DashboardCards({ childId }: DashboardCardsProps) {
   if (error) {
     return (
       <div className="col-span-full bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-        <p className="text-red-800 mb-3">Error loading dashboard: {error}</p>
+        <p className="text-red-800 mb-3">Error loading dashboard. {error} - Please try again.</p>
         <button 
-          onClick={() => window.location.reload()} 
+          onClick={refetch} 
           className="bg-red-100 hover:bg-red-200 text-red-800 px-4 py-2 rounded-lg transition-colors"
         >
           Try again

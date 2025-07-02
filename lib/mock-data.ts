@@ -111,11 +111,11 @@ export const mockActiveFeedSession: Activity = {
   updatedAt: minutesAgo(5),
 };
 
-// Helper function to get duration in minutes
-export const getDurationMinutes = (startTime: Date, endTime?: Date | null): number => {
-  const end = endTime || new Date();
-  return Math.floor((end.getTime() - startTime.getTime()) / (1000 * 60));
-};
+// Import shared utility
+import { getDurationMinutes } from './utils/datetime';
+
+// Re-export for convenience (though it's better to import from datetime utils directly)
+export { getDurationMinutes };
 
 // Helper function to format time ago
 export const formatTimeAgo = (date: Date): string => {

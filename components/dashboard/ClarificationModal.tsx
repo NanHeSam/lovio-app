@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { X, Bot, Send, Loader2 } from 'lucide-react';
 import { useChat } from 'ai/react';
-import { getLocalTimeWithTimezone } from '@/lib/utils';
+import { getLocalTimeWithTimezone } from '@/lib/utils/datetime';
 
 interface ClarificationModalProps {
   isOpen: boolean;
@@ -24,7 +24,6 @@ export default function ClarificationModal({
   context,
   onSuccess
 }: ClarificationModalProps) {
-  const [followUpInput, setFollowUpInput] = useState('');
 
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
     api: '/api/ai',

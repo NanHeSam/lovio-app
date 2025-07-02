@@ -2,7 +2,7 @@
 
 import { Send, Loader2, Bot } from 'lucide-react';
 import { useChat } from 'ai/react';
-import { getLocalTimeWithTimezone } from '@/lib/utils';
+import { getLocalTimeWithTimezone } from '@/lib/utils/datetime';
 
 interface PersistentAIInputProps {
   userId: string;

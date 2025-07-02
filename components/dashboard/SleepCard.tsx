@@ -2,12 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RecentActivity, ActiveSession } from "@/lib/db/types";
 import LiveTimer from "./LiveTimer";
 import { Button } from "@/components/ui/button";
-
-// Helper function to get duration in minutes
-const getDurationMinutes = (startTime: Date, endTime?: Date | null): number => {
-  const end = endTime || new Date();
-  return Math.floor((end.getTime() - startTime.getTime()) / (1000 * 60));
-};
+import { getDurationMinutes, formatTimeAgo, formatDuration } from "@/lib/utils/datetime";
 
 interface SleepCardProps {
   activeSession?: ActiveSession;
@@ -55,7 +50,7 @@ export default function SleepCard({ activeSession, lastSleep, onClick, onStopSes
               className="text-3xl font-bold text-purple-700 tracking-tight"
             />
             <div className="text-sm text-purple-600 font-medium">
-              Started {activeSession.durationMinutes < 60 ? `${activeSession.durationMinutes}m ago` : `${Math.floor(activeSession.durationMinutes / 60)}h ${activeSession.durationMinutes % 60}m ago`}
+              Started {formatTimeAgo(activeSession.durationMinutes)}
             </div>
           </div>
         </CardContent>
@@ -65,8 +60,6 @@ export default function SleepCard({ activeSession, lastSleep, onClick, onStopSes
 
   if (lastSleep) {
     const duration = getDurationMinutes(lastSleep.startTime, lastSleep.endTime);
-    const hours = Math.floor(duration / 60);
-    const minutes = duration % 60;
     
     return (
       <Card 
@@ -85,7 +78,7 @@ export default function SleepCard({ activeSession, lastSleep, onClick, onStopSes
               {lastSleep.ago}
             </div>
             <div className="text-2xl font-bold text-gray-900">
-              {hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`}
+              {formatDuration(duration)}
             </div>
           </div>
         </CardContent>
