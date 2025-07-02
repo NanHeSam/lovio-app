@@ -11,10 +11,7 @@ export function cn(...inputs: ClassValue[]) {
  * This is client-side only and will not work on the server
  */
 export function getLocalTimeWithTimezone(): string {
-  if (typeof window === 'undefined') {
-    throw new Error('getLocalTimeWithTimezone() can only be called on the client side');
-  }
-  
+
   const now = new Date();
   const offset = now.getTimezoneOffset();
   const sign = offset > 0 ? '-' : '+';

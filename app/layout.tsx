@@ -52,8 +52,14 @@ export default function RootLayout({
             </SignedOut>
             
             <SignedIn>
-              <Navigation />
-              {children}
+              <div className="min-h-screen bg-gray-50">
+                <div className="fixed top-0 left-0 right-0 z-50">
+                  <Navigation />
+                </div>
+                <div className="pt-16">
+                  {children}
+                </div>
+              </div>
             </SignedIn>
           </ToastProvider>
         </body>
