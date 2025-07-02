@@ -66,10 +66,30 @@ The database follows a sophisticated user-child relationship model with an activ
 ### File Structure
 ```
 app/                 # Next.js App Router pages
+  dashboard/         # Main dashboard interface with activity cards
+  activities/        # Activity tracking and management pages
+  api/               # API routes (activities, AI chat, dashboard data)
+components/          # React components
+  dashboard/         # Dashboard-specific components
+    ActivityDetailModal.tsx     # Modal for viewing activity details
+    ClarificationModal.tsx      # AI clarification dialog
+    DashboardCards.tsx          # Main dashboard container
+    DashboardWrapper.tsx        # Dashboard layout wrapper
+    DiaperCard.tsx             # Diaper change tracking card
+    FeedCard.tsx               # Feeding activity card
+    LiveTimer.tsx              # Real-time timer component
+    PersistentAIInput.tsx      # AI chat input component
+    SleepCard.tsx              # Sleep tracking card
+  activities/        # Activity management components
+  ui/                # Reusable UI components (Shadcn)
+  Navigation.tsx     # Main application navigation
 lib/
   chat/             # AI agent logic and processing
   db/               # Database layer (schema, queries, types)
-  utils.ts          # Shared utilities
+  hooks/            # Custom React hooks (useDashboard, useTimer)
+  utils/            # Utility functions
+    datetime.ts     # Date and time utility functions
+  utils.ts          # General shared utilities
 drizzle/            # Database migrations
 tests/              # Test suites organized by domain
   chat-scenarios.yml          # AI agent test scenarios (YAML)
@@ -96,6 +116,10 @@ docs/lessons/       # Development insights and troubleshooting
 - Functional and declarative programming patterns
 - Full TypeScript type safety with Drizzle ORM's `InferSelectModel`/`InferInsertModel`
 - JSONB fields for flexible metadata with schema validation
+- Modular component architecture with specialized dashboard cards
+- Custom hooks for state management (useDashboard, useTimer)
+- Centralized datetime utilities in `lib/utils/datetime.ts`
+- Type guards for runtime type safety (e.g., FeedCard type validation)
 
 ### Testing Approach
 - **Unit/Integration**: Jest configuration supports both unit and integration tests
@@ -137,6 +161,21 @@ docs/lessons/       # Development insights and troubleshooting
 - Use `user_children.permissions` JSONB field for granular access control
 - Default permissions: `{"read": true, "write": true, "admin": false}`
 - Validate permissions in queries and API routes
+
+### Dashboard Development
+1. **Activity Cards**: Each activity type has its own card component (SleepCard, FeedCard, DiaperCard)
+2. **Real-time Updates**: Use custom hooks for live timer functionality and data refreshing
+3. **Error Handling**: Implement proper error boundaries and user-friendly error messages
+4. **Type Safety**: Use type guards to validate activity details at runtime
+5. **UI Components**: Leverage Shadcn UI components for consistent design
+6. **Modal System**: Use ActivityDetailModal for detailed activity views
+
+### Utility Functions
+- **DateTime**: Use `lib/utils/datetime.ts` for all date/time operations
+  - `getLocalTimeWithTimezone()` - Get current local time with timezone offset
+  - `formatDuration()`, `formatTimeAgo()` - Format time durations
+  - `getDurationMinutes()` - Calculate duration between dates
+- **Error Handling**: Implement consistent error messaging across components
 
 ## AI Agent Testing Framework
 

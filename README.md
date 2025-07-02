@@ -88,9 +88,21 @@ See [Database Documentation](./lib/db/README.md) for detailed schema information
 ```
 lovio-app/
 ├── app/                 # Next.js App Router pages
+│   ├── dashboard/      # Main dashboard interface
+│   ├── activities/     # Activity tracking pages
+│   └── api/            # API routes for data operations
+├── components/         # React components
+│   ├── dashboard/      # Dashboard-specific components (FeedCard, SleepCard, etc.)
+│   ├── activities/     # Activity management components
+│   ├── ui/             # Reusable UI components (Shadcn)
+│   └── Navigation.tsx  # Main navigation component
 ├── lib/
+│   ├── chat/           # AI agent logic and processing
 │   ├── db/             # Database schema, queries, and utilities
-│   └── utils.ts        # Shared utilities
+│   ├── hooks/          # Custom React hooks
+│   ├── utils/          # Utility functions
+│   │   └── datetime.ts # Date and time utilities
+│   └── utils.ts        # General shared utilities
 ├── drizzle/            # Database migrations
 ├── docs/               # Project documentation
 └── docker-compose.yml  # Local PostgreSQL setup
@@ -110,6 +122,9 @@ lovio-app/
 - **User Management**: Account creation, preferences, timezone support
 - **Child Profiles**: Growth tracking, milestones, medical information
 - **Family Relationships**: Role-based permissions (parent, guardian, caregiver)
+- **Activity Tracking**: Sleep, feeding, diaper changes with real-time monitoring
+- **AI Integration**: Natural language processing for activity logging
+- **Dashboard Interface**: Real-time cards showing active sessions and recent activities
 - **Data Security**: Proper foreign key constraints and cascade deletions
 
 ## Documentation
