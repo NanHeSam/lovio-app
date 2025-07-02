@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { generateUserApiKey } from '@/lib/utils/api-keys';
 
 type WebhookEvent = {
   data: {
@@ -60,34 +61,43 @@ export async function POST(req: NextRequest) {
   try {
     switch (eventType) {
       case 'user.created':
-      case 'user.updated':
         const fullName = `${evt.data.first_name || ''} ${evt.data.last_name || ''}`.trim();
         const userData = {
           id,
           fullName: fullName || 'Unknown User',
           avatarUrl: evt.data.image_url || null,
+          createdAt: new Date(),
           updatedAt: new Date(),
           lastActiveAt: new Date(),
         };
 
-        // Upsert user (insert or update if exists)
-        await db
-          .insert(users)
-          .values({
-            ...userData,
-            createdAt: new Date(),
-          })
-          .onConflictDoUpdate({
-            target: users.id,
-            set: {
-              fullName: userData.fullName,
-              avatarUrl: userData.avatarUrl,
-              updatedAt: userData.updatedAt,
-              lastActiveAt: userData.lastActiveAt,
-            },
-          });
+        // Insert new user
+        await db.insert(users).values(userData);
 
-        console.log(`User ${eventType}: ${id}`);
+        // Generate API key for new user
+        try {
+          await generateUserApiKey(id);
+          console.log(`User created with API key: ${id}`);
+        } catch (error) {
+          console.error(`Failed to generate API key for user ${id}:`, error);
+        }
+        break;
+
+      case 'user.updated':
+        const updatedFullName = `${evt.data.first_name || ''} ${evt.data.last_name || ''}`.trim();
+        
+        // Update existing user (don't regenerate API key)
+        await db
+          .update(users)
+          .set({
+            fullName: updatedFullName || 'Unknown User',
+            avatarUrl: evt.data.image_url || null,
+            updatedAt: new Date(),
+            lastActiveAt: new Date(),
+          })
+          .where(eq(users.id, id));
+
+        console.log(`User updated: ${id}`);
         break;
 
       case 'user.deleted':
