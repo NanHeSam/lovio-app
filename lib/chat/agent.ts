@@ -88,6 +88,10 @@ Current Active Sessions: ${activeSessions.length > 0 ?
         userId,
         childId,
         userInput: userInput.substring(0, 100), // First 100 chars for context
+        environment: process.env.VERCEL_ENV || 'development', // preview, production, development
+        deployment: process.env.VERCEL_URL ? 'vercel' : 'local',
+        region: process.env.VERCEL_REGION || 'local',
+        gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'unknown',
       }
     }),
     tools: {
