@@ -11,14 +11,14 @@ export function cn(...inputs: ClassValue[]) {
  * This is client-side only and will not work on the server
  */
 export function getLocalTimeWithTimezone(): string {
-
   const now = new Date();
   const offset = now.getTimezoneOffset();
   const sign = offset > 0 ? '-' : '+';
   const hours = Math.floor(Math.abs(offset) / 60).toString().padStart(2, '0');
   const minutes = (Math.abs(offset) % 60).toString().padStart(2, '0');
   
-  // Get ISO string without the Z and add timezone offset
-  const isoString = now.toISOString().slice(0, -1);
+  // Create local time by adjusting for timezone offset
+  const localTime = new Date(now.getTime() - (offset * 60000));
+  const isoString = localTime.toISOString().slice(0, -1);
   return `${isoString}${sign}${hours}:${minutes}`;
 }
