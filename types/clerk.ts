@@ -10,3 +10,6 @@ export interface UserPrivateMetadata {
 export interface UserUnsafeMetadata {
   onboardingComplete?: boolean;
 }
+
+// Note: Client-side user.update() only supports unsafeMetadata
+// Server-side sessionClaims can access metadata, unsafeMetadata, and privateMetadata

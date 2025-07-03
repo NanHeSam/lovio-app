@@ -115,11 +115,22 @@ export async function revokeApiKey(userId: string): Promise<void> {
  * Regenerate API key for a user
  */
 export async function regenerateApiKey(userId: string): Promise<string> {
-  // First revoke the old key
-  await revokeApiKey(userId);
+  const apiKey = generateApiKey();
+  const hashedApiKey = hashApiKey(apiKey);
   
-  // Generate a new one
-  return await generateUserApiKey(userId);
+  // Update user with new API key (overwrites existing one)
+  await db
+    .update(users)
+    .set({
+      apiKey: hashedApiKey,
+      apiKeyCreatedAt: new Date(),
+      apiKeyActive: true,
+      apiKeyLastUsedAt: null, // Reset last used since it's a new key
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, userId));
+  
+  return apiKey; // Return the unhashed key for the user to store
 }
 
 /**
@@ -128,6 +139,7 @@ export async function regenerateApiKey(userId: string): Promise<string> {
 export async function getApiKeyInfo(userId: string) {
   const user = await db
     .select({
+      apiKey: users.apiKey,
       apiKeyCreatedAt: users.apiKeyCreatedAt,
       apiKeyLastUsedAt: users.apiKeyLastUsedAt,
       apiKeyActive: users.apiKeyActive,
@@ -141,7 +153,7 @@ export async function getApiKeyInfo(userId: string) {
   }
   
   return {
-    hasApiKey: !!user[0].apiKeyCreatedAt,
+    hasApiKey: !!(user[0].apiKey && user[0].apiKeyActive),
     createdAt: user[0].apiKeyCreatedAt,
     lastUsedAt: user[0].apiKeyLastUsedAt,
     isActive: user[0].apiKeyActive,
