@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, birthDate, gender } = body;
+    const { role, name, birthDate, gender } = body;
 
     if (!name || !birthDate) {
       return NextResponse.json({ error: 'Name and birth date are required' }, { status: 400 });
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         .values({
           userId: user.id,
           childId: newChild.id,
-          role: 'parent',
+          role: role || 'mom',
           permissions: { read: true, write: true, admin: true },
         });
       

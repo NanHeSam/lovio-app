@@ -33,6 +33,19 @@ export async function generateUserApiKey(userId: string): Promise<string> {
   const apiKey = generateApiKey();
   const hashedApiKey = hashApiKey(apiKey);
   
+  // Check if user already has an API key
+  const existingUser = await db
+    .select({ apiKey: users.apiKey })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  
+  if (existingUser[0]?.apiKey) {
+    // User already has an API key, don't overwrite it
+    throw new Error(`User ${userId} already has an API key`);
+  }
+  
+  // Update user with new API key
   await db
     .update(users)
     .set({

@@ -34,7 +34,6 @@ export async function POST(req: NextRequest) {
         timezone,
         preferences: {
           notifications,
-          reminderFrequency,
         },
         updatedAt: new Date(),
       })
