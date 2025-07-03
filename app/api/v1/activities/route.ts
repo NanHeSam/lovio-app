@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withApiKeyAuth } from '@/lib/middleware/api-auth';
 import { db } from '@/lib/db';
 import { activities, children, userChildren } from '@/lib/db/schema';
-import { eq, and, desc, inArray } from 'drizzle-orm';
+import { eq, and, desc, inArray, count } from 'drizzle-orm';
 
 /**
  * GET /api/v1/activities
@@ -69,13 +69,13 @@ export const GET = withApiKeyAuth(async (request: NextRequest, user) => {
 
     // Get total count for pagination
     const totalResult = await db
-      .select({ count: activities.id })
+      .select({ count: count() })
       .from(activities)
       .where(whereConditions);
 
     return NextResponse.json({
       activities: userActivities,
-      total: totalResult.length,
+      total: totalResult[0].count,
       limit,
       offset,
       user: {
