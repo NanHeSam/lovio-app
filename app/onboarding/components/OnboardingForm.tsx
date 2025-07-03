@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
+import { UserPublicMetadata } from '@/types/clerk';
 
-interface OnboardingFormProps {}
-
-export default function OnboardingForm({}: OnboardingFormProps) {
+export default function OnboardingForm() {
   const router = useRouter();
+  const { user } = useUser();
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -15,12 +17,38 @@ export default function OnboardingForm({}: OnboardingFormProps) {
     gender: '' as 'male' | 'female' | '',
   });
 
+  // Initialize user in database when component mounts
+  useEffect(() => {
+    const initializeUser = async () => {
+      try {
+        const response = await fetch('/api/user/initialize', {
+          method: 'POST',
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Failed to initialize user:', errorData.error);
+        }
+      } catch (error) {
+        console.error('Error initializing user:', error);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    if (user) {
+      initializeUser();
+    }
+  }, [user]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       setError(null);
+      
+      // Create child
       const response = await fetch('/api/children', {
         method: 'POST',
         headers: {
@@ -30,6 +58,19 @@ export default function OnboardingForm({}: OnboardingFormProps) {
       });
 
       if (response.ok) {
+        // Update Clerk metadata to mark onboarding as complete
+        try {
+          await user?.update({
+            publicMetadata: {
+              ...(user.publicMetadata as UserPublicMetadata),
+              onboardingComplete: true,
+            },
+          });
+        } catch (metadataError) {
+          console.error('Failed to update onboarding metadata:', metadataError);
+          // Continue anyway - child was created successfully
+        }
+        
         router.push('/dashboard');
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -42,6 +83,15 @@ export default function OnboardingForm({}: OnboardingFormProps) {
       setIsLoading(false);
     }
   };
+
+  if (isInitializing) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Setting up your account...</p>
+      </div>
+    );
+  }
 
   return (
     <div>

@@ -1,17 +1,12 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUserWithChildren } from '@/lib/auth';
+import { auth } from '@clerk/nextjs/server';
 import OnboardingForm from './components/OnboardingForm';
 
 export default async function OnboardingPage() {
-  const user = await getCurrentUserWithChildren();
+  const { userId } = await auth();
   
-  if (!user) {
+  if (!userId) {
     redirect('/sign-in');
-  }
-
-  // If user already has children, redirect to dashboard
-  if (user.hasChildren) {
-    redirect('/dashboard');
   }
 
   return (
@@ -22,11 +17,11 @@ export default async function OnboardingPage() {
             Welcome to Lovio! 👶
           </h1>
           <p className="text-gray-600">
-            Let&apos;s add your first child to get started with tracking activities.
+            Let&apos;s set up your account and add your first child to get started.
           </p>
         </div>
         
-        <OnboardingForm user={user} />
+        <OnboardingForm />
       </div>
     </div>
   );

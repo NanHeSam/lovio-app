@@ -4,7 +4,6 @@ import { headers } from 'next/headers';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { generateUserApiKey } from '@/lib/utils/api-keys';
 
 type WebhookEvent = {
   data: {
@@ -61,26 +60,9 @@ export async function POST(req: NextRequest) {
   try {
     switch (eventType) {
       case 'user.created':
-        const fullName = `${evt.data.first_name || ''} ${evt.data.last_name || ''}`.trim();
-        const userData = {
-          id,
-          fullName: fullName || 'Unknown User',
-          avatarUrl: evt.data.image_url || null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          lastActiveAt: new Date(),
-        };
-
-        // Insert new user
-        await db.insert(users).values(userData);
-
-        // Generate API key for new user
-        try {
-          await generateUserApiKey(id);
-          console.log(`User created with API key: ${id}`);
-        } catch (error) {
-          console.error(`Failed to generate API key for user ${id}:`, error);
-        }
+        // User creation is now handled in the onboarding flow
+        // Just log the event for monitoring purposes
+        console.log(`User creation webhook received for: ${id} (handled in onboarding)`);
         break;
 
       case 'user.updated':
