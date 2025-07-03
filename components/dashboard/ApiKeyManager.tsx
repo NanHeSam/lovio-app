@@ -165,7 +165,7 @@ export default function ApiKeyManager() {
           </div>
           
           <p className="text-green-700 text-sm mb-3">
-            Save this key now - you won't be able to see it again!
+            Save this key now - you won&apos;t be able to see it again!
           </p>
           
           <div className="flex items-center space-x-2">
@@ -228,9 +228,9 @@ export default function ApiKeyManager() {
             </div>
           </div>
         ) : (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <p className="text-yellow-800">
-              No API key found. Generate one to start using the API.
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-blue-800">
+              No API key found. Click &quot;Generate API Key&quot; below to create one for programmatic access.
             </p>
           </div>
         )}

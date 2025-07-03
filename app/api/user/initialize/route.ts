@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { generateUserApiKey } from '@/lib/utils/api-keys';
 
-export async function POST(_req: NextRequest) {
+export async function POST() {
   try {
     const { userId } = await auth();
     
@@ -50,14 +49,7 @@ export async function POST(_req: NextRequest) {
       .values(userData)
       .returning();
 
-    // Generate API key for new user
-    try {
-      await generateUserApiKey(userId);
-      console.log(`User initialized with API key: ${userId}`);
-    } catch (error) {
-      console.error(`Failed to generate API key for user ${userId}:`, error);
-      // Continue anyway - user is created, API key can be generated later
-    }
+    console.log(`User initialized successfully: ${userId}`);
 
     return NextResponse.json({ 
       message: 'User initialized successfully',
