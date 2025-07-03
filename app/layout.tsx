@@ -6,7 +6,6 @@ import {
   SignUpButton,
   SignedIn,
   SignedOut,
-  UserButton,
 } from '@clerk/nextjs'
 import { ToastProvider } from '@/components/ui/toast';
 import Navigation from '@/components/Navigation';

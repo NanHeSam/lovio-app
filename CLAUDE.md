@@ -246,6 +246,11 @@ The onboarding system uses a **database-driven approach** that is reliable and a
 - Direct database query to `user_children` table
 - Handles authentication via Clerk's `auth()` helper
 
+**Clerk Sign-In/Sign-Up Pages**:
+- `app/sign-in/[[...sign-in]]/page.tsx` - Uses `forceRedirectUrl="/dashboard"`
+- `app/sign-up/[[...sign-up]]/page.tsx` - Uses `forceRedirectUrl="/onboarding"`
+- Forces specific redirects regardless of Clerk's default behavior
+
 ### Role-Based Permission Management
 - Use `user_children.permissions` JSONB field for granular access control
 - Default permissions: `{"read": true, "write": true, "admin": false}`
