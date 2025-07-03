@@ -152,7 +152,7 @@ npm run db:generate
 npm run db:migrate:run
 ```
 
-**Migration file**: `drizzle/0003_known_night_thrasher.sql`
+**Migration file**: `drizzle/0003_add_api_key_fields_to_users.sql`
 
 ## 🧪 Testing
 
@@ -224,7 +224,7 @@ curl -X POST \
 - `app/dashboard/api-keys/page.tsx` - API key management UI
 - `components/dashboard/ApiKeyManager.tsx` - API key management component
 - `app/api/v1/activities/route.ts` - Example protected API route
-- `drizzle/0003_known_night_thrasher.sql` - Database migration
+- `drizzle/0003_add_api_key_fields_to_users.sql` - Database migration
 
 ### Modified Files
 - `lib/db/schema.ts` - Added API key fields to users table
