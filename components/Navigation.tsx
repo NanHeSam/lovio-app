@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
-import { Home, Activity } from 'lucide-react';
+import { Home, Activity, Key } from 'lucide-react';
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -18,6 +18,11 @@ export default function Navigation() {
       href: '/activities',
       label: 'Activities',
       icon: Activity,
+    },
+    {
+      href: '/dashboard/api-keys',
+      label: 'API Keys',
+      icon: Key,
     },
   ];
 

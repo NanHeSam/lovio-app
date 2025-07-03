@@ -60,34 +60,26 @@ export async function POST(req: NextRequest) {
   try {
     switch (eventType) {
       case 'user.created':
+        // User creation is now handled in the onboarding flow
+        // Just log the event for monitoring purposes
+        console.log(`User creation webhook received for: ${id} (handled in onboarding)`);
+        break;
+
       case 'user.updated':
-        const fullName = `${evt.data.first_name || ''} ${evt.data.last_name || ''}`.trim();
-        const userData = {
-          id,
-          fullName: fullName || 'Unknown User',
-          avatarUrl: evt.data.image_url || null,
-          updatedAt: new Date(),
-          lastActiveAt: new Date(),
-        };
-
-        // Upsert user (insert or update if exists)
+        const updatedFullName = `${evt.data.first_name || ''} ${evt.data.last_name || ''}`.trim();
+        
+        // Update existing user (don't regenerate API key)
         await db
-          .insert(users)
-          .values({
-            ...userData,
-            createdAt: new Date(),
+          .update(users)
+          .set({
+            fullName: updatedFullName || 'Unknown User',
+            avatarUrl: evt.data.image_url || null,
+            updatedAt: new Date(),
+            lastActiveAt: new Date(),
           })
-          .onConflictDoUpdate({
-            target: users.id,
-            set: {
-              fullName: userData.fullName,
-              avatarUrl: userData.avatarUrl,
-              updatedAt: userData.updatedAt,
-              lastActiveAt: userData.lastActiveAt,
-            },
-          });
+          .where(eq(users.id, id));
 
-        console.log(`User ${eventType}: ${id}`);
+        console.log(`User updated: ${id}`);
         break;
 
       case 'user.deleted':

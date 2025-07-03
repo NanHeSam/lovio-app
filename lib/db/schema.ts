@@ -10,6 +10,7 @@ import {
   date,
   unique,
   check,
+  boolean,
 } from 'drizzle-orm/pg-core';
 import type { UserPreferences, ChildMetadata, UserRole, Gender, ActivityType, ActivityDetails } from './types';
 
@@ -23,6 +24,13 @@ export const users = pgTable('users', {
   timezone: varchar('timezone', { length: 50 }),
   avatarUrl: text('avatar_url'),
   preferences: jsonb('preferences').$type<UserPreferences>().default(sql`'{}'::jsonb`),
+  
+  // API Key fields
+  apiKey: varchar('api_key', { length: 64 }).unique(),
+  apiKeyCreatedAt: timestamp('api_key_created_at', { withTimezone: true }),
+  apiKeyLastUsedAt: timestamp('api_key_last_used_at', { withTimezone: true }),
+  apiKeyActive: boolean('api_key_active').default(true),
+  
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   lastActiveAt: timestamp('last_active_at', { withTimezone: true }).defaultNow().notNull(),
@@ -106,8 +114,6 @@ export const activities = pgTable('activities', {
   check('valid_times', sql`end_time IS NULL OR end_time >= start_time`),
   check('valid_type', sql`type IN ('sleep', 'feed', 'diaper')`),
 ]);
-
-
 
 export const aiInteractions = pgTable('ai_interactions', {
   id: uuid('id').primaryKey().default(sql`uuid_generate_v4()`),

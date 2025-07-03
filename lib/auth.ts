@@ -1,4 +1,4 @@
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
 import { users, userChildren } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
@@ -17,26 +17,7 @@ export async function getCurrentUser() {
     .where(eq(users.id, userId))
     .limit(1);
 
-  if (existingUser[0]) {
-    return existingUser[0];
-  }
-
-  // User doesn't exist in our DB yet, create them
-  const clerkUser = await currentUser();
-  if (!clerkUser) {
-    return null;
-  }
-
-  const newUser = await db
-    .insert(users)
-    .values({
-      id: userId,
-      fullName: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'User',
-      avatarUrl: clerkUser.imageUrl,
-    })
-    .returning();
-
-  return newUser[0];
+  return existingUser[0] || null;
 }
 
 export async function getCurrentUserWithChildren() {

@@ -140,6 +140,77 @@ docs/lessons/       # Development insights and troubleshooting
   - `LANGCHAIN_API_KEY` - LangSmith API key for tracing
   - `LANGCHAIN_TRACING_V2=true` - Enable LangSmith tracing
   - `LANGCHAIN_PROJECT=lovio-app` - Project name for trace organization
+  - `CLERK_SECRET_KEY` - Clerk secret key for server-side operations
+  - `CLERK_WEBHOOK_SECRET` - Clerk webhook secret for validating webhooks
+
+## Authentication & Onboarding
+
+### Onboarding Flow Architecture
+
+The onboarding system uses a **database-driven approach** that is reliable and avoids Clerk metadata synchronization issues.
+
+#### Flow Logic
+- **User has no children** → Always redirected to `/onboarding` (cannot leave)
+- **User has children** → Cannot access `/onboarding` (redirected to `/dashboard`)
+- **Onboarding completion** → Create child → Automatic redirect to dashboard
+
+#### Technical Implementation
+
+**Middleware (`middleware.ts`)**:
+- Handles basic Clerk authentication and sign-in redirects
+- **Does NOT check onboarding status** (Edge Runtime limitation with database)
+- Skips all logic for API routes to prevent redirect issues
+
+**Client-Side Redirect (`components/OnboardingRedirect.tsx`)**:
+- **Runs on ALL authenticated pages** (included in root layout)
+- Calls `/api/user/has-children` to check database state
+- Handles automatic redirects based on children status
+- Edge Runtime compatible (uses API calls instead of direct DB queries)
+- Uses `usePathname()` to detect current page automatically
+
+**API Endpoints**:
+- `/api/user/initialize` - Creates user in database during onboarding
+- `/api/user/has-children` - Checks if user has any children (GET)
+- `/api/children` - Creates child and associates with user (POST)
+
+#### User Journey
+
+**New User**:
+1. Signs up via Clerk → User exists in Clerk only
+2. Accesses any protected page → `OnboardingRedirect` runs
+3. API call finds no children → Redirected to `/onboarding`
+4. `OnboardingForm` initializes user in database + generates API key
+5. User creates first child → Child associated with user
+6. Form redirects to `/dashboard` → `OnboardingRedirect` allows access
+
+**Existing User**:
+1. Signs in via Clerk
+2. `OnboardingRedirect` finds existing children → Allows dashboard access
+3. If somehow lands on `/onboarding` → Automatically redirected away
+
+#### Benefits of This Approach
+- ✅ **100% Reliable** - Database state is immediate and consistent
+- ✅ **No Race Conditions** - Direct database checks vs async metadata
+- ✅ **Edge Runtime Compatible** - No database imports in middleware
+- ✅ **Zero Maintenance** - Single component in layout covers all pages
+- ✅ **Auto-Detection** - Uses Next.js router to detect current page
+- ✅ **Self-Healing** - Redirects work on any page load automatically
+
+### User & API Key Management
+
+**User Creation Flow**:
+1. Clerk handles authentication signup/signin
+2. `/api/user/initialize` creates user in local database
+3. API key generated automatically during initialization
+4. Webhook handles profile updates (not creation)
+
+**API Key Features**:
+- Format: `lv_live_<32-char-hex>`
+- Securely hashed in database (SHA-256)
+- Automatic generation during user initialization
+- Regeneration support via `/dashboard/api-keys`
+- Usage tracking (creation, last used timestamps)
+- Proper regeneration without conflicts (replaces existing keys)
 
 ## Common Workflows
 
@@ -156,6 +227,29 @@ docs/lessons/       # Development insights and troubleshooting
 4. Apply migration: `npm run db:migrate`
 5. Update TypeScript types if needed
 6. Write tests for new functionality
+
+### Onboarding Implementation Details
+
+**Layout Integration (`app/layout.tsx`)**:
+- `OnboardingRedirect` component included in `<SignedIn>` wrapper
+- Runs automatically on ALL authenticated pages
+- No need to add to individual pages
+
+**Component Logic (`components/OnboardingRedirect.tsx`)**:
+- Uses `usePathname()` to detect current route
+- Calls `/api/user/has-children` for database state
+- Simple logic: no children = force onboarding, has children = allow access
+- Silent redirects (no loading states needed)
+
+**API Route (`/api/user/has-children`)**:
+- GET endpoint returning `{ hasChildren: boolean }`
+- Direct database query to `user_children` table
+- Handles authentication via Clerk's `auth()` helper
+
+**Clerk Sign-In/Sign-Up Pages**:
+- `app/sign-in/[[...sign-in]]/page.tsx` - Uses `forceRedirectUrl="/dashboard"`
+- `app/sign-up/[[...sign-up]]/page.tsx` - Uses `forceRedirectUrl="/onboarding"`
+- Forces specific redirects regardless of Clerk's default behavior
 
 ### Role-Based Permission Management
 - Use `user_children.permissions` JSONB field for granular access control

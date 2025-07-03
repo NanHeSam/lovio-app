@@ -6,10 +6,10 @@ import {
   SignUpButton,
   SignedIn,
   SignedOut,
-  UserButton,
 } from '@clerk/nextjs'
 import { ToastProvider } from '@/components/ui/toast';
 import Navigation from '@/components/Navigation';
+import OnboardingRedirect from '@/components/OnboardingRedirect';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -52,6 +52,7 @@ export default function RootLayout({
             </SignedOut>
             
             <SignedIn>
+              <OnboardingRedirect />
               <div className="min-h-screen bg-gray-50">
                 <div className="fixed top-0 left-0 right-0 z-50">
                   <Navigation />

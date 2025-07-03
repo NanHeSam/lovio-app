@@ -1,6 +1,29 @@
-import { clerkMiddleware } from '@clerk/nextjs/server';
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
-export default clerkMiddleware();
+const isPublicRoute = createRouteMatcher([
+  '/sign-in', 
+  '/sign-up', 
+  '/',
+  '/monitoring',
+  '/favicon.ico'
+]);
+
+export default clerkMiddleware(async (auth, req) => {
+  const { userId } = await auth();
+
+  // Skip redirect logic for API routes - they handle their own auth
+  if (req.nextUrl.pathname.startsWith('/api/')) {
+    return;
+  }
+
+  // If user is not signed in and trying to access protected route, redirect to sign-in
+  if (!userId && !isPublicRoute(req)) {
+    return (await auth()).redirectToSignIn({ returnBackUrl: req.url });
+  }
+
+  // For authenticated users, we'll handle onboarding checks client-side
+  // since Edge Runtime doesn't support database connections
+});
 
 export const config = {
   matcher: [
