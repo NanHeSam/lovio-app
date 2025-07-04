@@ -5,6 +5,11 @@ import { userChildren, children } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import ProfileForm from './components/ProfileForm';
 
+/**
+ * Renders the user profile settings page for authenticated users.
+ *
+ * Fetches the current user and their associated children from the database. If the user is not authenticated, redirects to the sign-in page. Passes the user and their children data to the profile form component for display and editing.
+ */
 export default async function ProfilePage() {
   const user = await getCurrentUserWithChildren();
   

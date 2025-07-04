@@ -16,6 +16,11 @@ interface ProfileFormProps {
   userChildren: UserChild[];
 }
 
+/**
+ * Renders a form interface for editing user profile information and managing associated children data.
+ *
+ * Allows users to update their personal details (full name, timezone, avatar URL) and edit information for each child (name, birth date, gender, avatar URL). Submissions are handled asynchronously, updating the server and providing feedback messages. If no children are present, prompts the user to add their first child.
+ */
 export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
