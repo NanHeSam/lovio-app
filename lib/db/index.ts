@@ -7,12 +7,17 @@ let _pool: Pool | null = null;
 
 function initializeDb() {
   if (!_db) {
-    if (!process.env.DATABASE_URL) {
+    // Use TEST_DATABASE_URL in test environment, otherwise use DATABASE_URL
+    const databaseUrl = process.env.NODE_ENV === 'test' 
+      ? (process.env.TEST_DATABASE_URL || process.env.DATABASE_URL)
+      : process.env.DATABASE_URL;
+      
+    if (!databaseUrl) {
       throw new Error('DATABASE_URL is not defined');
     }
     
     _pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: databaseUrl,
     });
     
     _db = drizzle(_pool, { schema });
