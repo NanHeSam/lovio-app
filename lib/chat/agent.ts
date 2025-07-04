@@ -486,6 +486,31 @@ Key principles:
 - Always confirm with local time context`,
     };
 
+    // Helper function to update AI interaction record
+    async function updateAiInteraction(
+      interactionId: string,
+      responseText: string,
+      functionCalls: any[],
+      associatedActivityId?: string | null
+    ) {
+      const updateData: any = {
+        aiResponse: responseText,
+        functionCalls: functionCalls.length > 0 ? functionCalls : null,
+      };
+      
+      if (associatedActivityId) {
+        updateData.activityId = associatedActivityId;
+      }
+      
+      await db.update(aiInteractions)
+        .set(updateData)
+        .where(eq(aiInteractions.id, interactionId));
+
+      if (associatedActivityId) {
+        console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId}${streaming ? ' and LangSmith trace' : ''}`);
+      }
+    }
+
     // Use streaming or non-streaming based on the parameter
     if (streaming) {
       const result = streamText(aiConfig);
@@ -494,27 +519,8 @@ Key principles:
       result.finishReason.then(async () => {
         try {
           if (interactionId) {
-            // Get the final response text
             const responseText = await result.text;
-            
-            // Update the interaction with the AI response, function calls, and activity association
-            const updateData: any = {
-              aiResponse: responseText,
-              functionCalls: functionCalls.length > 0 ? functionCalls : null,
-            };
-            
-            if (associatedActivityId) {
-              updateData.activityId = associatedActivityId;
-            }
-            
-            await db.update(aiInteractions)
-              .set(updateData)
-              .where(eq(aiInteractions.id, interactionId));
-
-            // Note: LangSmith trace is already linked via runId = interactionId
-            if (associatedActivityId) {
-              console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId} and LangSmith trace`);
-            }
+            await updateAiInteraction(interactionId, responseText, functionCalls, associatedActivityId);
           }
         } catch (error) {
           console.error('Error updating AI interaction:', error);
@@ -531,22 +537,7 @@ Key principles:
       // Update the interaction with the AI response immediately
       try {
         if (interactionId) {
-          const updateData: any = {
-            aiResponse: result.text,
-            functionCalls: functionCalls.length > 0 ? functionCalls : null,
-          };
-          
-          if (associatedActivityId) {
-            updateData.activityId = associatedActivityId;
-          }
-          
-          await db.update(aiInteractions)
-            .set(updateData)
-            .where(eq(aiInteractions.id, interactionId));
-
-          if (associatedActivityId) {
-            console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId}`);
-          }
+          await updateAiInteraction(interactionId, result.text, functionCalls, associatedActivityId);
         }
       } catch (error) {
         console.error('Error updating AI interaction:', error);
