@@ -5,6 +5,11 @@ import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
 import { Home, Activity, User } from 'lucide-react';
 
+/**
+ * Renders the main navigation bar with links to dashboard, activities, and profile, adapting layout for desktop and mobile views.
+ *
+ * Displays navigation links with active state highlighting based on the current path, a brand logo, and a user menu button.
+ */
 export default function Navigation() {
   const pathname = usePathname();
 

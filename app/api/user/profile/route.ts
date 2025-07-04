@@ -4,6 +4,12 @@ import { users } from '@/lib/db/schema';
 import { getCurrentUser } from '@/lib/auth';
 import { eq } from 'drizzle-orm';
 
+/**
+ * Handles PATCH requests to update the authenticated user's profile.
+ *
+ * Validates and updates the user's full name, timezone, and avatar URL based on the request body.
+ * Returns the updated user data and a success message on success, or an appropriate error response on failure.
+ */
 export async function PATCH(request: NextRequest) {
   try {
     const user = await getCurrentUser();

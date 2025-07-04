@@ -4,6 +4,11 @@ import { children, userChildren } from '@/lib/db/schema';
 import { getCurrentUser } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
 
+/**
+ * Handles HTTP PATCH requests to update a child's information by ID.
+ *
+ * Authenticates the current user, verifies their permission to update the specified child, validates input fields, and updates the child's record in the database. Returns appropriate error responses for authentication, authorization, validation, or if the child does not exist. On success, returns the updated child data and a confirmation message.
+ */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { childId: string } }
