@@ -1,5 +1,5 @@
 import { openai } from '@ai-sdk/openai';
-import { streamText, tool } from 'ai';
+import { streamText, generateText, tool } from 'ai';
 import { z } from 'zod';
 import { AISDKExporter } from 'langsmith/vercel';
 import { 
@@ -20,10 +20,11 @@ export interface ChatRequest {
   userId: string;
   childId: string;
   deviceTime: string; // ISO format with timezone: "2025-01-03T12:30:33+05:00"
+  streaming?: boolean; // If true, returns streaming response; if false, returns complete text
 }
 
 export async function processChatRequest(request: ChatRequest) {
-  const { messages, userId, childId, deviceTime } = request;
+  const { messages, userId, childId, deviceTime, streaming = true } = request;
 
   // Get the user's input message (last message should be from user)
   const userMessage = messages[messages.length - 1];
@@ -78,22 +79,23 @@ Current Active Sessions: ${activeSessions.length > 0 ?
     });
     interactionId = interaction.id;
 
-    const result = streamText({
-    model: openai('gpt-4.1'),
-    messages: messagesWithContext,
-    maxSteps: 5,
-    experimental_telemetry: AISDKExporter.getSettings({
-      runId: interactionId,
-      metadata: {
-        userId,
-        childId,
-        userInput: userInput.substring(0, 100), // First 100 chars for context
-        environment: process.env.VERCEL_ENV || 'development', // preview, production, development
-        deployment: process.env.VERCEL_URL ? 'vercel' : 'local',
-        region: process.env.VERCEL_REGION || 'local',
-        gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'unknown',
-      }
-    }),
+    // Shared configuration for both streaming and non-streaming calls
+    const aiConfig = {
+      model: openai('gpt-4.1'),
+      messages: messagesWithContext,
+      maxSteps: 5,
+      experimental_telemetry: AISDKExporter.getSettings({
+        runId: interactionId,
+        metadata: {
+          userId,
+          childId,
+          userInput: userInput.substring(0, 100), // First 100 chars for context
+          environment: process.env.VERCEL_ENV || 'development', // preview, production, development
+          deployment: process.env.VERCEL_URL ? 'vercel' : 'local',
+          region: process.env.VERCEL_REGION || 'local',
+          gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'unknown',
+        }
+      }),
     tools: {
       parseUserTime: tool({
         description: 'Convert AI-determined time to UTC for database storage. Call this when user mentions any time reference.',
@@ -482,38 +484,76 @@ Key principles:
 - Smart updates over unnecessary conflicts
 - Ask clarification only for genuine ambiguity
 - Always confirm with local time context`,
-    });
+    };
 
-    // Handle completion to update the interaction record
-    result.finishReason.then(async () => {
-      try {
-        if (interactionId) {
-          // Get the final response text
-          const responseText = await result.text;
-          
-          // Update the interaction with the AI response, function calls, and activity association
-          await db.update(aiInteractions)
-            .set({
+    // Use streaming or non-streaming based on the parameter
+    if (streaming) {
+      const result = streamText(aiConfig);
+
+      // Handle completion to update the interaction record (streaming)
+      result.finishReason.then(async () => {
+        try {
+          if (interactionId) {
+            // Get the final response text
+            const responseText = await result.text;
+            
+            // Update the interaction with the AI response, function calls, and activity association
+            const updateData: any = {
               aiResponse: responseText,
               functionCalls: functionCalls.length > 0 ? functionCalls : null,
-              ...(associatedActivityId && { activityId: associatedActivityId })
-            })
+            };
+            
+            if (associatedActivityId) {
+              updateData.activityId = associatedActivityId;
+            }
+            
+            await db.update(aiInteractions)
+              .set(updateData)
+              .where(eq(aiInteractions.id, interactionId));
+
+            // Note: LangSmith trace is already linked via runId = interactionId
+            if (associatedActivityId) {
+              console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId} and LangSmith trace`);
+            }
+          }
+        } catch (error) {
+          console.error('Error updating AI interaction:', error);
+        }
+      }).catch((error) => {
+        console.error('Error in finishReason handler:', error);
+      });
+
+      return result;
+    } else {
+      // Non-streaming version - get complete result immediately
+      const result = await generateText(aiConfig);
+      
+      // Update the interaction with the AI response immediately
+      try {
+        if (interactionId) {
+          const updateData: any = {
+            aiResponse: result.text,
+            functionCalls: functionCalls.length > 0 ? functionCalls : null,
+          };
+          
+          if (associatedActivityId) {
+            updateData.activityId = associatedActivityId;
+          }
+          
+          await db.update(aiInteractions)
+            .set(updateData)
             .where(eq(aiInteractions.id, interactionId));
 
-          // Note: LangSmith trace is already linked via runId = interactionId
-          // Activity ID is now available in our database record and can be cross-referenced
           if (associatedActivityId) {
-            console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId} and LangSmith trace`);
+            console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId}`);
           }
         }
       } catch (error) {
         console.error('Error updating AI interaction:', error);
       }
-    }).catch((error) => {
-      console.error('Error in finishReason handler:', error);
-    });
 
-    return result;
+      return result;
+    }
     
   } catch (error) {
     // Log error in the interaction record
