@@ -5,7 +5,7 @@ export default function ProblemSolutionSection() {
     <section className="py-20 px-4 md:px-8 bg-white">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
-          {/* Right: Image */}
+          {/* Left: Image */}
           <div className="flex-1 flex justify-center lg:justify-end">
             <div className="relative w-full max-w-lg">
               <Image

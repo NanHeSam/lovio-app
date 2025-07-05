@@ -6,13 +6,10 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Menu, X } from "lucide-react";
 
-interface NavigationItem {
-  type: 'button' | 'link';
-  label: string;
-  action?: string;
-  href?: string;
-  className?: string;
-}
+// Refactor NavigationItem to a discriminated union
+type NavigationItem =
+  | { type: 'button'; label: string; action: string; className?: string }
+  | { type: 'link'; label: string; href: string; className?: string };
 
 const NAVIGATION_ITEMS: NavigationItem[] = [
   {
@@ -71,7 +68,7 @@ export default function LandingNavigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center cursor-pointer" onClick={() => scrollToSection("hero")}>
+          <Link href="/" className="flex items-center cursor-pointer" onClick={() => scrollToSection("hero")}>
             <Image
               src="/lovio-icon.png"
               alt="Lovio logo"
@@ -83,15 +80,14 @@ export default function LandingNavigation() {
             <span className="text-lg font-bold text-[#7B61FF] ml-2 tracking-tight">
               Lovio
             </span>
-          </div>
-
+          </Link>
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-8">
             {NAVIGATION_ITEMS.map((item, index) => (
               item.type === 'button' ? (
                 <button
                   key={index}
-                  onClick={() => scrollToSection(item.action!)}
+                  onClick={() => scrollToSection(item.action)}
                   className="text-gray-700 hover:text-[#7B61FF] transition-colors duration-200 font-medium"
                 >
                   {item.label}
@@ -99,7 +95,7 @@ export default function LandingNavigation() {
               ) : (
                 <Link
                   key={index}
-                  href={item.href!}
+                  href={item.href}
                   className={item.className}
                 >
                   {item.label}
@@ -134,7 +130,7 @@ export default function LandingNavigation() {
                 item.type === 'button' ? (
                   <button
                     key={index}
-                    onClick={() => scrollToSection(item.action!)}
+                    onClick={() => scrollToSection(item.action)}
                     className="block w-full text-left text-gray-700 hover:text-[#7B61FF] transition-colors duration-200 font-medium py-2"
                   >
                     {item.label}
@@ -142,7 +138,7 @@ export default function LandingNavigation() {
                 ) : (
                   <Link
                     key={index}
-                    href={item.href!}
+                    href={item.href}
                     className="block w-full bg-[#7B61FF] text-white px-6 py-3 rounded-full hover:bg-[#6B51E6] transition-colors duration-200 font-medium text-center mt-4"
                   >
                     {item.label}
