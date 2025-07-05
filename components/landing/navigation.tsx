@@ -6,6 +6,38 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Menu, X } from "lucide-react";
 
+interface NavigationItem {
+  type: 'button' | 'link';
+  label: string;
+  action?: string;
+  href?: string;
+  className?: string;
+}
+
+const NAVIGATION_ITEMS: NavigationItem[] = [
+  {
+    type: 'button',
+    label: 'Home',
+    action: 'hero',
+  },
+  {
+    type: 'button',
+    label: 'Features',
+    action: 'problem-solution',
+  },
+  {
+    type: 'button',
+    label: 'How It Works',
+    action: 'how-it-works',
+  },
+  {
+    type: 'link',
+    label: 'Start Now',
+    href: '/dashboard',
+    className: 'bg-[#7B61FF] text-white px-6 py-2 rounded-full hover:bg-[#6B51E6] transition-colors duration-200 font-medium',
+  },
+];
+
 export default function LandingNavigation() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -55,30 +87,25 @@ export default function LandingNavigation() {
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-8">
-            <button
-              onClick={() => scrollToSection("hero")}
-              className="text-gray-700 hover:text-[#7B61FF] transition-colors duration-200 font-medium"
-            >
-              Home
-            </button>
-            <button
-              onClick={() => scrollToSection("problem-solution")}
-              className="text-gray-700 hover:text-[#7B61FF] transition-colors duration-200 font-medium"
-            >
-              Features
-            </button>
-            <button
-              onClick={() => scrollToSection("how-it-works")}
-              className="text-gray-700 hover:text-[#7B61FF] transition-colors duration-200 font-medium"
-            >
-              How It Works
-            </button>
-            <Link
-              href="/dashboard"
-              className="bg-[#7B61FF] text-white px-6 py-2 rounded-full hover:bg-[#6B51E6] transition-colors duration-200 font-medium"
-            >
-              Start Now
-            </Link>
+            {NAVIGATION_ITEMS.map((item, index) => (
+              item.type === 'button' ? (
+                <button
+                  key={index}
+                  onClick={() => scrollToSection(item.action!)}
+                  className="text-gray-700 hover:text-[#7B61FF] transition-colors duration-200 font-medium"
+                >
+                  {item.label}
+                </button>
+              ) : (
+                <Link
+                  key={index}
+                  href={item.href!}
+                  className={item.className}
+                >
+                  {item.label}
+                </Link>
+              )
+            ))}
           </div>
 
           {/* Mobile Menu Button */}
@@ -103,30 +130,25 @@ export default function LandingNavigation() {
         {isMobileMenuOpen && (
           <div className="md:hidden bg-white/95 backdrop-blur-md border-t border-gray-200">
             <div className="px-4 py-4 space-y-3">
-              <button
-                onClick={() => scrollToSection("hero")}
-                className="block w-full text-left text-gray-700 hover:text-[#7B61FF] transition-colors duration-200 font-medium py-2"
-              >
-                Home
-              </button>
-              <button
-                onClick={() => scrollToSection("problem-solution")}
-                className="block w-full text-left text-gray-700 hover:text-[#7B61FF] transition-colors duration-200 font-medium py-2"
-              >
-                Features
-              </button>
-              <button
-                onClick={() => scrollToSection("how-it-works")}
-                className="block w-full text-left text-gray-700 hover:text-[#7B61FF] transition-colors duration-200 font-medium py-2"
-              >
-                How It Works
-              </button>
-              <Link
-                href="/dashboard"
-                className="block w-full bg-[#7B61FF] text-white px-6 py-3 rounded-full hover:bg-[#6B51E6] transition-colors duration-200 font-medium text-center mt-4"
-              >
-                Start Now
-              </Link>
+              {NAVIGATION_ITEMS.map((item, index) => (
+                item.type === 'button' ? (
+                  <button
+                    key={index}
+                    onClick={() => scrollToSection(item.action!)}
+                    className="block w-full text-left text-gray-700 hover:text-[#7B61FF] transition-colors duration-200 font-medium py-2"
+                  >
+                    {item.label}
+                  </button>
+                ) : (
+                  <Link
+                    key={index}
+                    href={item.href!}
+                    className="block w-full bg-[#7B61FF] text-white px-6 py-3 rounded-full hover:bg-[#6B51E6] transition-colors duration-200 font-medium text-center mt-4"
+                  >
+                    {item.label}
+                  </Link>
+                )
+              ))}
             </div>
           </div>
         )}
