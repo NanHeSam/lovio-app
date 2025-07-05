@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import ApiKeyManager from '@/components/dashboard/ApiKeyManager';
 import IOSShortcutDownload from '@/components/dashboard/IOSShortcutDownload';
+import { IOS_SHORTCUT_URL } from '@/lib/constants';
 
 export default async function ApiKeysPage() {
   const user = await getCurrentUser();
@@ -50,7 +51,7 @@ export default async function ApiKeysPage() {
                     <p className="text-gray-600 text-sm">Click the download button to get the shortcut</p>
                   </div>
                   <a
-                    href="https://www.icloud.com/shortcuts/53e0d68696b14dc0b8317fcc29d2c7f7"
+                    href={IOS_SHORTCUT_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="ml-4 inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors shadow-md hover:shadow-lg"

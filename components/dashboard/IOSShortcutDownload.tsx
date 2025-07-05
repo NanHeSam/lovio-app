@@ -1,4 +1,4 @@
-'use client';
+import { IOS_SHORTCUT_URL } from '@/lib/constants';
 
 interface IOSShortcutDownloadProps {
   variant?: 'default' | 'compact';
@@ -9,7 +9,7 @@ export default function IOSShortcutDownload({
   variant = 'default', 
   className = '' 
 }: IOSShortcutDownloadProps) {
-  const shortcutUrl = "https://www.icloud.com/shortcuts/53e0d68696b14dc0b8317fcc29d2c7f7";
+  const shortcutUrl = IOS_SHORTCUT_URL;
   
   if (variant === 'compact') {
     return (

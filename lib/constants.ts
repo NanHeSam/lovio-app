@@ -1,0 +1,1 @@
+export const IOS_SHORTCUT_URL = process.env.NEXT_PUBLIC_IOS_SHORTCUT_URL || "https://www.icloud.com/shortcuts/53e0d68696b14dc0b8317fcc29d2c7f7";
