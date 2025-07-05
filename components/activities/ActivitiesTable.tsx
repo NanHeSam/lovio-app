@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -11,8 +12,13 @@ import {
   Filter,
   Calendar,
   Clock,
-  Baby
+  Baby,
+  Edit,
+  Trash2,
+  MoreVertical,
+  AlertTriangle
 } from 'lucide-react';
+import EditActivityModal from './EditActivityModal';
 import type { ActivityType, ActivityDetails, FeedDetails, DiaperDetails } from '@/lib/db/types';
 
 interface Activity {
@@ -54,6 +60,16 @@ export default function ActivitiesTable({ childId }: ActivitiesTableProps) {
   const [filterType, setFilterType] = useState<ActivityType | 'all'>('all');
   const [sortBy, setSortBy] = useState('startTime');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
+  // Selection and editing
+  const [selectedActivities, setSelectedActivities] = useState<Set<string>>(new Set());
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    show: boolean;
+    activityId?: string;
+    isBulk?: boolean;
+  }>({ show: false });
 
   const fetchActivities = async () => {
     try {
@@ -90,6 +106,8 @@ export default function ActivitiesTable({ childId }: ActivitiesTableProps) {
 
   useEffect(() => {
     fetchActivities();
+    // Clear selection when activities are refreshed
+    setSelectedActivities(new Set());
   }, [childId, pagination.page, filterType, sortBy, sortOrder]);
 
   const handleSort = (column: string) => {
@@ -103,6 +121,98 @@ export default function ActivitiesTable({ childId }: ActivitiesTableProps) {
 
   const handlePageChange = (newPage: number) => {
     setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  // Selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedActivities(new Set(activities.map(a => a.id)));
+    } else {
+      setSelectedActivities(new Set());
+    }
+  };
+
+  const handleSelectActivity = (activityId: string, checked: boolean) => {
+    const newSelection = new Set(selectedActivities);
+    if (checked) {
+      newSelection.add(activityId);
+    } else {
+      newSelection.delete(activityId);
+    }
+    setSelectedActivities(newSelection);
+  };
+
+  // Edit handlers
+  const handleEditActivity = (activity: Activity) => {
+    setEditingActivity(activity);
+    setShowEditModal(true);
+  };
+
+  const handleSaveActivity = async (updatedActivity: Activity) => {
+    // Update the activity in the local state
+    setActivities(prev => 
+      prev.map(a => a.id === updatedActivity.id ? updatedActivity : a)
+    );
+    setShowEditModal(false);
+    setEditingActivity(null);
+  };
+
+  // Delete handlers
+  const handleDeleteActivity = (activityId: string) => {
+    setDeleteConfirmation({ show: true, activityId, isBulk: false });
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedActivities.size === 0) return;
+    setDeleteConfirmation({ show: true, isBulk: true });
+  };
+
+  const confirmDelete = async () => {
+    try {
+      setLoading(true);
+      
+      if (deleteConfirmation.isBulk) {
+        // Bulk delete
+        const activityIds = Array.from(selectedActivities).join(',');
+        const response = await fetch(`/api/activities/${childId}?activityIds=${activityIds}`, {
+          method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to delete activities');
+        }
+        
+        // Remove deleted activities from state
+        setActivities(prev => prev.filter(a => !selectedActivities.has(a.id)));
+        setSelectedActivities(new Set());
+        
+      } else if (deleteConfirmation.activityId) {
+        // Single delete
+        const response = await fetch(`/api/activities/${childId}?activityId=${deleteConfirmation.activityId}`, {
+          method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to delete activity');
+        }
+        
+        // Remove deleted activity from state
+        setActivities(prev => prev.filter(a => a.id !== deleteConfirmation.activityId));
+      }
+      
+      setDeleteConfirmation({ show: false });
+    } catch (error) {
+      console.error('Error deleting activities:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete activities');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirmation({ show: false });
   };
 
   const formatDuration = (startTime: string, endTime: string | null): string => {
@@ -239,8 +349,21 @@ export default function ActivitiesTable({ childId }: ActivitiesTableProps) {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Activities ({pagination.total} total)</span>
-            <div className="text-sm text-gray-500">
-              Page {pagination.page} of {pagination.totalPages}
+            <div className="flex items-center gap-3">
+              {selectedActivities.size > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  className="flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Selected ({selectedActivities.size})
+                </Button>
+              )}
+              <div className="text-sm text-gray-500">
+                Page {pagination.page} of {pagination.totalPages}
+              </div>
             </div>
           </CardTitle>
         </CardHeader>
@@ -249,6 +372,12 @@ export default function ActivitiesTable({ childId }: ActivitiesTableProps) {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
+                  <th className="text-left py-3 px-2 w-12">
+                    <Checkbox
+                      checked={activities.length > 0 && selectedActivities.size === activities.length}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                    />
+                  </th>
                   <th className="text-left py-3 px-2">Type</th>
                   <th className="text-left py-3 px-2">
                     <SortButton column="startTime">
@@ -264,11 +393,18 @@ export default function ActivitiesTable({ childId }: ActivitiesTableProps) {
                     </span>
                   </th>
                   <th className="text-left py-3 px-2">Details</th>
+                  <th className="text-left py-3 px-2 w-24">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {activities.map((activity) => (
                   <tr key={activity.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-2">
+                      <Checkbox
+                        checked={selectedActivities.has(activity.id)}
+                        onChange={(e) => handleSelectActivity(activity.id, e.target.checked)}
+                      />
+                    </td>
                     <td className="py-3 px-2">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">{getActivityIcon(activity.type)}</span>
@@ -290,6 +426,26 @@ export default function ActivitiesTable({ childId }: ActivitiesTableProps) {
                     </td>
                     <td className="py-3 px-2 text-gray-700">
                       {getActivityDetails(activity.type, activity.details)}
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditActivity(activity)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteActivity(activity.id)}
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -365,6 +521,62 @@ export default function ActivitiesTable({ childId }: ActivitiesTableProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Modal */}
+      <EditActivityModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        activity={editingActivity}
+        childId={childId}
+        onSave={handleSaveActivity}
+      />
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmation.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <AlertTriangle className="w-8 h-8 text-red-600" />
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {deleteConfirmation.isBulk ? 'Delete Selected Activities' : 'Delete Activity'}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {deleteConfirmation.isBulk 
+                      ? `Are you sure you want to delete ${selectedActivities.size} selected activities?`
+                      : 'Are you sure you want to delete this activity?'
+                    }
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-800">
+                  <strong>Warning:</strong> This action cannot be undone. The activity data will be permanently deleted.
+                </p>
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={cancelDelete}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={confirmDelete}
+                  disabled={loading}
+                >
+                  {loading ? 'Deleting...' : 'Delete'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
