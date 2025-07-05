@@ -10,7 +10,7 @@ function isValidTimezone(timezone: string): boolean {
     // Use Intl.DateTimeFormat to check if timezone is valid
     Intl.DateTimeFormat(undefined, { timeZone: timezone });
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -21,7 +21,7 @@ function isValidUrl(urlString: string): boolean {
     const url = new URL(urlString);
     // Only allow http and https protocols for security
     return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch (error) {
+  } catch {
     return false;
   }
 }

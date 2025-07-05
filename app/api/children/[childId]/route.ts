@@ -4,6 +4,17 @@ import { children, userChildren } from '@/lib/db/schema';
 import { getCurrentUser } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
 
+// Helper function to validate URL
+function isValidUrl(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    // Only allow http and https protocols for security
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { childId: string } }
@@ -76,7 +87,21 @@ export async function PATCH(
     }
     
     if (avatarUrl !== undefined) {
-      updateData.avatarUrl = avatarUrl || null;
+      if (avatarUrl === null || avatarUrl === '') {
+        updateData.avatarUrl = null;
+      } else if (typeof avatarUrl === 'string') {
+        // Validate URL format
+        if (!isValidUrl(avatarUrl)) {
+          return NextResponse.json({ 
+            error: 'Invalid avatar URL. Please provide a valid URL format' 
+          }, { status: 400 });
+        }
+        updateData.avatarUrl = avatarUrl;
+      } else {
+        return NextResponse.json({ 
+          error: 'Avatar URL must be a string or null' 
+        }, { status: 400 });
+      }
     }
 
     // Update the child

@@ -4,16 +4,16 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Child } from '@/lib/db/types';
 
-interface UserChild {
+interface UserChildWithDetails {
   child: Child;
   role: string | null;
-  permissions: any;
+  permissions: unknown;
   userChildId: string;
 }
 
 interface ProfileFormProps {
   user: User;
-  userChildren: UserChild[];
+  userChildren: UserChildWithDetails[];
 }
 
 export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
@@ -32,10 +32,10 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
     error: string | null;
     success: string | null;
   }>>(
-    userChildren.reduce((acc, uc) => ({
-      ...acc,
-      [uc.child.id]: { isLoading: false, error: null, success: null }
-    }), {})
+    userChildren.reduce((acc, uc) => {
+      acc[uc.child.id] = { isLoading: false, error: null, success: null };
+      return acc;
+    }, {} as Record<string, { isLoading: boolean; error: string | null; success: string | null }>)
   );
   
   // User form state
@@ -92,7 +92,7 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
   };
 
   const handleChildSubmit = async (childId: string) => {
-    const childForm = childrenForms.find((cf: any) => cf.id === childId);
+    const childForm = childrenForms.find(cf => cf.id === childId);
     if (!childForm) return;
 
     setChildrenStates(prev => ({
@@ -289,7 +289,7 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
               <div className="space-y-4">
                 <div>
                   <label htmlFor={`child-name-${childForm.id}`} className="block text-sm font-medium text-gray-700 mb-1">
-                    Child's Name
+                    Child&apos;s Name
                   </label>
                   <input
                     type="text"
