@@ -18,9 +18,25 @@ interface ProfileFormProps {
 
 export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  
+  // Separate state for user profile
+  const [userState, setUserState] = useState({
+    isLoading: false,
+    error: null as string | null,
+    success: null as string | null,
+  });
+
+  // Separate state for each child form
+  const [childrenStates, setChildrenStates] = useState<Record<string, {
+    isLoading: boolean;
+    error: string | null;
+    success: string | null;
+  }>>(
+    userChildren.reduce((acc, uc) => ({
+      ...acc,
+      [uc.child.id]: { isLoading: false, error: null, success: null }
+    }), {})
+  );
   
   // User form state
   const [userForm, setUserForm] = useState({
@@ -43,9 +59,7 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
 
   const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-    setSuccess(null);
+    setUserState({ isLoading: true, error: null, success: null });
 
     try {
       const response = await fetch('/api/user/profile', {
@@ -57,27 +71,34 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
       });
 
       if (response.ok) {
-        setSuccess('Profile updated successfully!');
+        setUserState({ isLoading: false, error: null, success: 'Profile updated successfully!' });
         router.refresh();
       } else {
         const errorData = await response.json().catch(() => ({}));
-        setError(errorData.error || 'Failed to update profile. Please try again.');
+        setUserState({ 
+          isLoading: false, 
+          error: errorData.error || 'Failed to update profile. Please try again.', 
+          success: null 
+        });
       }
     } catch (error) {
       console.error('Error:', error);
-      setError('An unexpected error occurred. Please try again.');
-    } finally {
-      setIsLoading(false);
+      setUserState({ 
+        isLoading: false, 
+        error: 'An unexpected error occurred. Please try again.', 
+        success: null 
+      });
     }
   };
 
   const handleChildSubmit = async (childId: string) => {
-    const childForm = childrenForms.find(cf => cf.id === childId);
+    const childForm = childrenForms.find((cf: any) => cf.id === childId);
     if (!childForm) return;
 
-    setIsLoading(true);
-    setError(null);
-    setSuccess(null);
+    setChildrenStates(prev => ({
+      ...prev,
+      [childId]: { isLoading: true, error: null, success: null }
+    }));
 
     try {
       const response = await fetch(`/api/children/${childId}`, {
@@ -94,17 +115,32 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
       });
 
       if (response.ok) {
-        setSuccess('Child information updated successfully!');
+        setChildrenStates(prev => ({
+          ...prev,
+          [childId]: { isLoading: false, error: null, success: 'Child information updated successfully!' }
+        }));
         router.refresh();
       } else {
         const errorData = await response.json().catch(() => ({}));
-        setError(errorData.error || 'Failed to update child information. Please try again.');
+        setChildrenStates(prev => ({
+          ...prev,
+          [childId]: { 
+            isLoading: false, 
+            error: errorData.error || 'Failed to update child information. Please try again.',
+            success: null 
+          }
+        }));
       }
     } catch (error) {
       console.error('Error:', error);
-      setError('An unexpected error occurred. Please try again.');
-    } finally {
-      setIsLoading(false);
+      setChildrenStates(prev => ({
+        ...prev,
+        [childId]: { 
+          isLoading: false, 
+          error: 'An unexpected error occurred. Please try again.',
+          success: null 
+        }
+      }));
     }
   };
 
@@ -118,17 +154,33 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
 
   return (
     <div className="space-y-8">
-      {/* Success/Error Messages */}
-      {success && (
+      {/* Global Success/Error Messages */}
+      {userState.success && (
         <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
-          {success}
+          {userState.success}
         </div>
       )}
-      {error && (
+      {userState.error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-          {error}
+          {userState.error}
         </div>
       )}
+      
+      {/* Child-specific success/error messages */}
+      {Object.entries(childrenStates).map(([childId, state]) => (
+        <div key={`${childId}-messages`}>
+          {state.success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
+              {state.success}
+            </div>
+          )}
+          {state.error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+              {state.error}
+            </div>
+          )}
+        </div>
+      ))}
 
       {/* User Profile Section */}
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -188,10 +240,10 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={userState.isLoading}
             className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           >
-            {isLoading ? 'Updating...' : 'Update Profile'}
+            {userState.isLoading ? 'Updating...' : 'Update Profile'}
           </button>
         </form>
       </div>
@@ -297,10 +349,10 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
                 <button
                   type="button"
                   onClick={() => handleChildSubmit(childForm.id)}
-                  disabled={isLoading}
+                  disabled={childrenStates[childForm.id]?.isLoading || false}
                   className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                 >
-                  {isLoading ? 'Updating...' : `Update ${childForm.name || 'Child'} Info`}
+                  {childrenStates[childForm.id]?.isLoading ? 'Updating...' : `Update ${childForm.name || 'Child'} Info`}
                 </button>
               </div>
             </div>

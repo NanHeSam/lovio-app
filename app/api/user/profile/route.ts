@@ -4,6 +4,28 @@ import { users } from '@/lib/db/schema';
 import { getCurrentUser } from '@/lib/auth';
 import { eq } from 'drizzle-orm';
 
+// Helper function to validate timezone
+function isValidTimezone(timezone: string): boolean {
+  try {
+    // Use Intl.DateTimeFormat to check if timezone is valid
+    Intl.DateTimeFormat(undefined, { timeZone: timezone });
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+// Helper function to validate URL
+function isValidUrl(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    // Only allow http and https protocols for security
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch (error) {
+    return false;
+  }
+}
+
 export async function PATCH(request: NextRequest) {
   try {
     const user = await getCurrentUser();
