@@ -18,7 +18,7 @@ function isValidUrl(urlString: string): boolean {
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { childId: string } }
+  { params }: { params: Promise<{ childId: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -27,7 +27,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const childId = params.childId;
+    const { childId } = await params;
     const body = await request.json();
     const { name, birthDate, gender, avatarUrl } = body;
 
