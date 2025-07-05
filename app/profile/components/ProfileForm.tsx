@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Child } from '@/lib/db/types';
+import AddChildForm from '@/components/forms/AddChildForm';
+import InviteParentForm from '@/components/forms/InviteParentForm';
 
 interface UserChildWithDetails {
   child: Child;
@@ -37,6 +39,10 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
       return acc;
     }, {} as Record<string, { isLoading: boolean; error: string | null; success: string | null }>)
   );
+
+  // Modal states
+  const [showAddChildModal, setShowAddChildModal] = useState(false);
+  const [inviteModalChild, setInviteModalChild] = useState<{ id: string; name: string } | null>(null);
   
   // User form state
   const [userForm, setUserForm] = useState({
@@ -250,7 +256,15 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
 
       {/* Children Section */}
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-gray-900">Children Information</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">Children Information</h2>
+          <button
+            onClick={() => setShowAddChildModal(true)}
+            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm font-medium"
+          >
+            + Add Child
+          </button>
+        </div>
         
         {childrenForms.length === 0 ? (
           <div className="bg-white rounded-lg shadow-md p-6 text-center">
@@ -260,7 +274,7 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
               Add your first child to start tracking activities
             </p>
             <button 
-              onClick={() => router.push('/onboarding')}
+              onClick={() => setShowAddChildModal(true)}
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               Add Your First Child
@@ -273,16 +287,24 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
                 <h3 className="text-xl font-semibold text-gray-900">
                   {childForm.name || 'Child'} Information
                 </h3>
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-xl">
-                  {childForm.avatarUrl ? (
-                    <img 
-                      src={childForm.avatarUrl} 
-                      alt={childForm.name} 
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    '👶'
-                  )}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setInviteModalChild({ id: childForm.id, name: childForm.name })}
+                    className="bg-purple-600 text-white px-3 py-1 text-sm rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    Invite Parent
+                  </button>
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-xl">
+                    {childForm.avatarUrl ? (
+                      <img 
+                        src={childForm.avatarUrl} 
+                        alt={childForm.name} 
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      '👶'
+                    )}
+                  </div>
                 </div>
               </div>
               
@@ -359,6 +381,45 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
           ))
         )}
       </div>
+
+      {/* Add Child Modal */}
+      {showAddChildModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Child</h3>
+              <AddChildForm
+                onSuccess={() => {
+                  setShowAddChildModal(false);
+                  router.refresh();
+                }}
+                onCancel={() => setShowAddChildModal(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Parent Modal */}
+      {inviteModalChild && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Invite Parent/Guardian
+              </h3>
+              <InviteParentForm
+                childId={inviteModalChild.id}
+                childName={inviteModalChild.name}
+                onSuccess={() => {
+                  setInviteModalChild(null);
+                }}
+                onCancel={() => setInviteModalChild(null)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
