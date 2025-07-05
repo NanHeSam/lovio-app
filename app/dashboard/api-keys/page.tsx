@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import ApiKeyManager from '@/components/dashboard/ApiKeyManager';
+import IOSShortcutDownload from '@/components/dashboard/IOSShortcutDownload';
 
 export default async function ApiKeysPage() {
   const user = await getCurrentUser();
@@ -65,6 +66,11 @@ export default async function ApiKeysPage() {
               }/api/activities
             </div>
           </div>
+        </div>
+
+        {/* iOS Shortcut Download Section */}
+        <div className="mt-8">
+          <IOSShortcutDownload />
         </div>
       </div>
     </div>
