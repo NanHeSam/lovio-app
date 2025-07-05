@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { children, userChildren } from '@/lib/db/schema';
 import { getCurrentUser } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
+import { Gender } from '@/lib/db/types';
 
 // Helper function to validate URL
 function isValidUrl(urlString: string): boolean {
@@ -72,7 +73,7 @@ export async function PATCH(
     const updateData: {
       name: string;
       birthDate: string;
-      gender?: string | null;
+      gender?: Gender | null;
       avatarUrl?: string | null;
       updatedAt: Date;
     } = {
@@ -83,7 +84,7 @@ export async function PATCH(
 
     // Add optional fields
     if (gender !== undefined) {
-      updateData.gender = gender || null;
+      updateData.gender = (gender === 'male' || gender === 'female') ? gender : null;
     }
     
     if (avatarUrl !== undefined) {
