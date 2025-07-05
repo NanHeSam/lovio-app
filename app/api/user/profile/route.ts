@@ -31,13 +31,41 @@ export async function PATCH(request: NextRequest) {
       updatedAt: new Date(),
     };
 
-    // Add optional fields if provided
+    // Validate and add optional fields if provided
     if (timezone !== undefined) {
-      updateData.timezone = timezone || null;
+      if (timezone === null || timezone === '') {
+        updateData.timezone = null;
+      } else if (typeof timezone === 'string') {
+        // Validate timezone string
+        if (!isValidTimezone(timezone)) {
+          return NextResponse.json({ 
+            error: 'Invalid timezone. Please provide a valid timezone string (e.g., "America/New_York", "Europe/London")' 
+          }, { status: 400 });
+        }
+        updateData.timezone = timezone;
+      } else {
+        return NextResponse.json({ 
+          error: 'Timezone must be a string or null' 
+        }, { status: 400 });
+      }
     }
     
     if (avatarUrl !== undefined) {
-      updateData.avatarUrl = avatarUrl || null;
+      if (avatarUrl === null || avatarUrl === '') {
+        updateData.avatarUrl = null;
+      } else if (typeof avatarUrl === 'string') {
+        // Validate URL format
+        if (!isValidUrl(avatarUrl)) {
+          return NextResponse.json({ 
+            error: 'Invalid avatar URL. Please provide a valid URL format' 
+          }, { status: 400 });
+        }
+        updateData.avatarUrl = avatarUrl;
+      } else {
+        return NextResponse.json({ 
+          error: 'Avatar URL must be a string or null' 
+        }, { status: 400 });
+      }
     }
 
     // Update the user
