@@ -4,7 +4,6 @@ import { db } from '@/lib/db';
 import { userChildren, children } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import DashboardWrapper from '@/components/dashboard/DashboardWrapper';
-import IOSShortcutDownload from '@/components/dashboard/IOSShortcutDownload';
 
 export default async function DashboardPage() {
   const user = await getCurrentUserWithChildren();
@@ -116,11 +115,6 @@ export default async function DashboardPage() {
             })}
           </div>
         )}
-
-        {/* iOS Shortcut Download Section */}
-        <div className="mt-12 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <IOSShortcutDownload />
-        </div>
       </div>
     </div>
   );

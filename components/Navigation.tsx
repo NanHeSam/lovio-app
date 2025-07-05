@@ -21,7 +21,7 @@ export default function Navigation() {
     },
     {
       href: '/dashboard/api-keys',
-      label: 'API Keys',
+      label: 'iOS Shortcuts',
       icon: Key,
     },
   ];
