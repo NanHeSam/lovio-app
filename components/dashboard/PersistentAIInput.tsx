@@ -66,7 +66,7 @@ export default function PersistentAIInput({
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40">
       <div className="max-w-5xl mx-auto px-4 py-4">
-        <form onSubmit={handleFormSubmit}>
+        <form onSubmit={handleFormSubmit} suppressHydrationWarning>
           <div className="flex items-center gap-3">
             {/* AI Icon */}
             <div className="flex-shrink-0">

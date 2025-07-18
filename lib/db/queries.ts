@@ -1,6 +1,6 @@
 import { db } from './index';
 import { activities, children, users, userChildren, aiInteractions } from './schema';
-import { eq, and, isNull, desc, gte, lte } from 'drizzle-orm';
+import { eq, and, isNull, desc, gte, lte, inArray } from 'drizzle-orm';
 import { formatTimeAgo } from '../utils/datetime';
 import type { 
   ActivityType, 
@@ -70,11 +70,12 @@ export async function startActivity(params: {
  */
 export async function updateActivity(params: {
   activityId: string;
+  userId?: string;
   startTime?: Date;
   endTime?: Date;
   details?: ActivityDetails;
 }) {
-  const { activityId, startTime, endTime, details } = params;
+  const { activityId, userId, startTime, endTime, details } = params;
   
   // Get the current activity to merge details
   const currentActivities = await db
@@ -89,10 +90,16 @@ export async function updateActivity(params: {
   
   const currentActivity = currentActivities[0];
   
-  // Check if trying to end an already ended activity
-  if (endTime !== undefined && currentActivity.endTime) {
-    throw new Error('Activity session is already ended');
+  // Check if user has access to this child (only if userId is provided)
+  if (userId) {
+    const hasAccess = await validateChildAccess(userId, currentActivity.childId);
+    if (!hasAccess) {
+      throw new Error('Access denied: You do not have permission to update this activity');
+    }
   }
+  
+  // Allow editing endTime for completed activities
+  // The original validation was too restrictive for editing use cases
   
   // Merge details if provided
   const mergedDetails = details ? { ...currentActivity.details, ...details } as ActivityDetails : currentActivity.details;
@@ -123,6 +130,90 @@ export async function updateActivity(params: {
     .returning();
   
   return updatedActivity;
+}
+
+/**
+ * Delete a single activity
+ */
+export async function deleteActivity(params: {
+  activityId: string;
+  userId: string;
+}) {
+  const { activityId, userId } = params;
+  
+  // First, verify the user has permission to delete this activity
+  const activity = await db
+    .select({
+      id: activities.id,
+      childId: activities.childId,
+      createdBy: activities.createdBy,
+    })
+    .from(activities)
+    .where(eq(activities.id, activityId))
+    .limit(1);
+  
+  if (activity.length === 0) {
+    throw new Error('Activity not found');
+  }
+  
+  // Check if user has access to this child
+  const hasAccess = await validateChildAccess(userId, activity[0].childId);
+  if (!hasAccess) {
+    throw new Error('Access denied: You do not have permission to delete this activity');
+  }
+  
+  // Delete the activity
+  const [deletedActivity] = await db
+    .delete(activities)
+    .where(eq(activities.id, activityId))
+    .returning();
+  
+  return deletedActivity;
+}
+
+/**
+ * Delete multiple activities
+ */
+export async function deleteActivities(params: {
+  activityIds: string[];
+  userId: string;
+}) {
+  const { activityIds, userId } = params;
+  
+  if (activityIds.length === 0) {
+    return [];
+  }
+  
+  // First, verify the user has permission to delete all these activities
+  const activitiesData = await db
+    .select({
+      id: activities.id,
+      childId: activities.childId,
+      createdBy: activities.createdBy,
+    })
+    .from(activities)
+    .where(inArray(activities.id, activityIds));
+  
+  if (activitiesData.length !== activityIds.length) {
+    throw new Error('Some activities not found');
+  }
+  
+  // Check if user has access to all child records
+  const childIds = [...new Set(activitiesData.map(a => a.childId))];
+  for (const childId of childIds) {
+    const hasAccess = await validateChildAccess(userId, childId);
+    if (!hasAccess) {
+      throw new Error('Access denied: You do not have permission to delete some of these activities');
+    }
+  }
+  
+  // Delete all activities
+  const deletedActivities = await db
+    .delete(activities)
+    .where(inArray(activities.id, activityIds))
+    .returning();
+  
+  return deletedActivities;
 }
 
 /**
