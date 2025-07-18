@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createInvitation } from '@/lib/db/queries';
 import { InvitationRole } from '@/lib/db/types';
+import { sendInvitationEmail } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,8 +47,16 @@ export async function POST(request: NextRequest) {
       expiresInDays: 7, // Invitations expire in 7 days
     });
 
-    // TODO: Send actual email with invitation link
-    // For now, we'll just log the invitation details
+    // Generate invitation URL
+    const invitationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/invite/${invitation.token}`;
+
+    // Send invitation email
+    const emailResult = await sendInvitationEmail({
+      invitation,
+      invitationUrl,
+    });
+
+    // Log invitation details
     console.log('Invitation created:', {
       id: invitation.id,
       token: invitation.token,
@@ -57,12 +66,14 @@ export async function POST(request: NextRequest) {
       role: invitation.inviteeRole,
       message: invitation.personalMessage,
       expiresAt: invitation.expiresAt,
-      invitationUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/invite/${invitation.token}`,
+      invitationUrl,
+      emailSent: emailResult.success,
+      emailError: emailResult.success ? null : emailResult.error,
     });
 
     // Return success response with invitation details
     return NextResponse.json({ 
-      message: 'Invitation sent successfully',
+      message: emailResult.success ? 'Invitation sent successfully' : 'Invitation created but email failed to send',
       invitation: {
         id: invitation.id,
         childName: invitation.child.name,
@@ -70,9 +81,10 @@ export async function POST(request: NextRequest) {
         role: invitation.inviteeRole,
         status: invitation.status,
         expiresAt: invitation.expiresAt,
-        // For development, include the invitation URL
-        invitationUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/invite/${invitation.token}`,
-      }
+        invitationUrl,
+        emailSent: emailResult.success,
+      },
+      emailResult: emailResult.success ? { sent: true } : { sent: false, error: emailResult.error }
     });
 
   } catch (error) {

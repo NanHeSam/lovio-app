@@ -823,8 +823,9 @@ export async function getInvitationByToken(token: string): Promise<InvitationWit
 export async function acceptInvitation(params: {
   token: string;
   acceptingUserId: string;
+  userEmail?: string; // Optional user email from Clerk
 }): Promise<{ success: boolean; message: string }> {
-  const { token, acceptingUserId } = params;
+  const { token, acceptingUserId, userEmail } = params;
 
   // Get the invitation
   const invitation = await getInvitationByToken(token);
@@ -847,19 +848,35 @@ export async function acceptInvitation(params: {
     return { success: false, message: 'This invitation has expired' };
   }
 
-  // Get the accepting user's email
+  // Get the accepting user's email from database or use provided email
   const [acceptingUser] = await db
     .select({ email: users.email })
     .from(users)
     .where(eq(users.id, acceptingUserId))
     .limit(1);
 
-  if (!acceptingUser?.email) {
-    return { success: false, message: 'User email not found' };
+  let acceptingUserEmail = acceptingUser?.email;
+
+  // If no email in database but email provided (from Clerk), update the database
+  if (!acceptingUserEmail && userEmail) {
+    try {
+      await db
+        .update(users)
+        .set({ email: userEmail.toLowerCase() })
+        .where(eq(users.id, acceptingUserId));
+      
+      acceptingUserEmail = userEmail.toLowerCase();
+    } catch (error) {
+      console.error('Error updating user email:', error);
+    }
+  }
+
+  if (!acceptingUserEmail) {
+    return { success: false, message: 'User email not found. Please ensure your account is properly set up.' };
   }
 
   // Check if the email matches the invitation
-  if (acceptingUser.email.toLowerCase() !== invitation.inviteeEmail.toLowerCase()) {
+  if (acceptingUserEmail.toLowerCase() !== invitation.inviteeEmail.toLowerCase()) {
     return { success: false, message: 'This invitation was sent to a different email address' };
   }
 
