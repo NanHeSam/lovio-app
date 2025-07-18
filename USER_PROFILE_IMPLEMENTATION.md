@@ -15,12 +15,13 @@ I've implemented a comprehensive user profile page that allows users to view and
 ### 2. Profile Form Component
 - **Location**: `app/profile/components/ProfileForm.tsx`
 - **Features**:
-  - Edit user basic information (name, timezone, avatar)
-  - Edit children information (name, birth date, gender, avatar)
+  - Edit user basic information (name, timezone)
+  - Edit children information (name, birth date, gender)
   - Individual save buttons for user and each child
   - Form validation and error handling
   - Success/error message display
   - Loading states during updates
+  - **Note**: Avatar input fields have been removed for simplified user experience
 
 ### 3. API Endpoints
 
@@ -28,7 +29,7 @@ I've implemented a comprehensive user profile page that allows users to view and
 - **Endpoint**: `PATCH /api/user/profile`
 - **Location**: `app/api/user/profile/route.ts`
 - **Features**:
-  - Updates user's fullName, timezone, and avatarUrl
+  - Updates user's fullName and timezone
   - Validates required fields
   - Returns updated user data
 
@@ -36,7 +37,7 @@ I've implemented a comprehensive user profile page that allows users to view and
 - **Endpoint**: `PATCH /api/children/[childId]`
 - **Location**: `app/api/children/[childId]/route.ts`
 - **Features**:
-  - Updates child's name, birthDate, gender, and avatarUrl
+  - Updates child's name, birthDate, and gender
   - Validates user permissions for the child
   - Validates required fields and data formats
   - Returns updated child data
@@ -60,7 +61,8 @@ The implementation uses the existing database schema:
 - `id` (primary key, Clerk user ID)
 - `fullName` (editable)
 - `timezone` (editable, optional)
-- `avatarUrl` (editable, optional)
+- `email` (unique, for invitation system)
+- `avatarUrl` (display only, not editable via profile)
 - `updatedAt` (automatically updated)
 
 ### Children Table
@@ -68,7 +70,7 @@ The implementation uses the existing database schema:
 - `name` (editable)
 - `birthDate` (editable)
 - `gender` (editable, optional: 'male' | 'female')
-- `avatarUrl` (editable, optional)
+- `avatarUrl` (display only, not editable via profile)
 - `updatedAt` (automatically updated)
 
 ### UserChildren Table
@@ -87,13 +89,11 @@ The implementation uses the existing database schema:
 ### User Profile
 - **Full Name**: Required, must be non-empty string
 - **Timezone**: Optional, dropdown with common timezones
-- **Avatar URL**: Optional, must be valid URL format
 
 ### Child Information
 - **Name**: Required, must be non-empty string
 - **Birth Date**: Required, must be valid date
 - **Gender**: Optional, must be 'male' or 'female'
-- **Avatar URL**: Optional, must be valid URL format
 
 ## UI/UX Features
 
@@ -130,12 +130,32 @@ The profile page integrates seamlessly with:
 - Design system and styling
 - API patterns established in the app
 
+## Invitation System Integration
+
+### Caregiver Invitation Flow
+The profile page integrates with the comprehensive invitation system that allows users to invite other caregivers to help track their children's activities.
+
+#### Key Features
+- **Invitation Management**: Access via `/dashboard/invitations` in navigation
+- **Role-Based Access**: Invite users as parent, guardian, or caregiver
+- **Secure Token System**: Each invitation uses a unique secure token
+- **Email Validation**: Invitations are tied to specific email addresses
+- **Expiration Handling**: Invitations expire after 7 days
+- **Status Tracking**: Pending, accepted, rejected, expired statuses
+
+#### Database Schema
+- **Invitations Table**: Complete invitation tracking with foreign key relationships
+- **User Email Field**: Added to support invitation system
+- **Permission System**: Role-based access control through user_children table
+
 ## Future Enhancements
 
 Potential improvements that could be added:
-1. Image upload for avatars
+1. Image upload for avatars (currently removed for simplicity)
 2. More detailed user preferences
 3. Child growth tracking features
 4. Profile picture cropping
 5. Bulk child operations
 6. Data export functionality
+7. Enhanced invitation management (bulk invitations, templates)
+8. Real-time notifications for invitation status changes

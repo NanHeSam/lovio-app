@@ -748,25 +748,16 @@ export async function createInvitation(params: {
  * Get invitation with full details
  */
 export async function getInvitationWithDetails(invitationId: string): Promise<InvitationWithDetails> {
+  // First get the invitation with inviter and child details
   const [result] = await db
     .select({
       invitation: invitations,
       inviter: users,
       child: children,
-      accepter: {
-        id: users.id,
-        fullName: users.fullName,
-        email: users.email,
-        avatarUrl: users.avatarUrl,
-      }
     })
     .from(invitations)
     .innerJoin(users, eq(invitations.inviterUserId, users.id))
     .innerJoin(children, eq(invitations.childId, children.id))
-    .leftJoin(
-      { accepterUser: users }, 
-      eq(invitations.acceptedBy, users.id)
-    )
     .where(eq(invitations.id, invitationId))
     .limit(1);
 
@@ -774,11 +765,28 @@ export async function getInvitationWithDetails(invitationId: string): Promise<In
     throw new Error('Invitation not found');
   }
 
+  // Get accepter details separately if accepted
+  let accepter: any = undefined;
+  if (result.invitation.acceptedBy) {
+    const [accepterResult] = await db
+      .select({
+        id: users.id,
+        fullName: users.fullName,
+        email: users.email,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(users)
+      .where(eq(users.id, result.invitation.acceptedBy))
+      .limit(1);
+    
+    accepter = accepterResult;
+  }
+
   return {
     ...result.invitation,
     inviter: result.inviter,
     child: result.child,
-    accepter: result.accepter || undefined,
+    accepter,
   };
 }
 
