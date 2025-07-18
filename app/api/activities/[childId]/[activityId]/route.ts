@@ -9,7 +9,7 @@ import { eq, and } from 'drizzle-orm';
  * Get detailed activity information including AI interaction data
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ childId: string; activityId: string }> }
 ) {
   try {
@@ -78,9 +78,9 @@ export async function GET(
       ...result.activity,
       child: result.child,
       createdByUser: result.createdByUser,
-      aiInteraction: result.aiInteraction.id ? result.aiInteraction : null,
-      langsmithTraceUrl: result.aiInteraction.id 
-        ? `https://smith.langchain.com/o/YOUR_ORG_ID/p/lovio-app/r/${result.aiInteraction.id}`
+      aiInteraction: result.aiInteraction?.id ? result.aiInteraction : null,
+      langsmithTraceUrl: result.aiInteraction?.id 
+        ? `https://smith.langchain.com/o/1f9974f3-eaef-438e-8369-60b3ead4a04f/p/lovio-app/r/${result.aiInteraction.id}`
         : null
     });
 

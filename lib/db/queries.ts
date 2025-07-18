@@ -646,6 +646,6 @@ export async function getAIInteractionsWithTraceInfo(params: {
   return interactions.map(interaction => ({
     ...interaction,
     langsmithTraceId: interaction.id, // AI interaction ID = LangSmith run ID
-    langsmithTraceUrl: `https://smith.langchain.com/o/YOUR_ORG_ID/p/lovio-app/r/${interaction.id}`, // Customize with actual org ID
+    langsmithTraceUrl: `https://smith.langchain.com/o/1f9974f3-eaef-438e-8369-60b3ead4a04f/p/lovio-app/r/${interaction.id}`,
   }));
 }

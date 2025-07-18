@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: 'Feedback submitted successfully',
       feedbackId: updatedInteraction[0].id,
-      langsmithTraceUrl: `https://smith.langchain.com/o/YOUR_ORG_ID/p/lovio-app/r/${langsmithTraceId}`
+      langsmithTraceUrl: `https://smith.langchain.com/o/1f9974f3-eaef-438e-8369-60b3ead4a04f/p/lovio-app/r/${langsmithTraceId}`
     });
 
   } catch (error) {
