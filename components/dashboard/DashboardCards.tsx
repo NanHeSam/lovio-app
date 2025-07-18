@@ -6,7 +6,10 @@ import FeedCard from './FeedCard';
 import SleepCard from './SleepCard';
 import DiaperCard from './DiaperCard';
 import ActivityDetailModal from './ActivityDetailModal';
+import EditActivityModal from '../activities/EditActivityModal';
 import { useToast } from '@/components/ui/toast';
+import { useQueryInvalidation } from '@/lib/hooks/useQueryInvalidation';
+import type { RecentActivity, ActivityType } from '@/lib/db/types';
 
 interface DashboardCardsProps {
   childId: string;
@@ -15,6 +18,7 @@ interface DashboardCardsProps {
 export default function DashboardCards({ childId }: DashboardCardsProps) {
   const { data, loading, error, refetch } = useDashboard(childId);
   const { showToast } = useToast();
+  const { invalidateDashboard } = useQueryInvalidation();
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     activityType: 'sleep' | 'feed' | 'diaper' | null;
@@ -23,12 +27,93 @@ export default function DashboardCards({ childId }: DashboardCardsProps) {
     activityType: null,
   });
 
+  const [editModal, setEditModal] = useState<{
+    isOpen: boolean;
+    activity: {
+      id: string;
+      type: ActivityType;
+      startTime: string;
+      endTime: string | null;
+      details: any;
+      createdAt: string;
+    } | null;
+  }>({
+    isOpen: false,
+    activity: null,
+  });
+
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    show: boolean;
+    activity: RecentActivity | null;
+  }>({
+    show: false,
+    activity: null,
+  });
+
   const openModal = (activityType: 'sleep' | 'feed' | 'diaper') => {
     setModalState({ isOpen: true, activityType });
   };
 
   const closeModal = () => {
     setModalState({ isOpen: false, activityType: null });
+  };
+
+  const handleEditActivity = (recentActivity: RecentActivity) => {
+    // Convert RecentActivity to Activity by adding createdAt
+    const activity = {
+      ...recentActivity,
+      startTime: recentActivity.startTime.toISOString(),
+      endTime: recentActivity.endTime ? recentActivity.endTime.toISOString() : null,
+      createdAt: new Date().toISOString(), // Use current time as fallback for createdAt
+    };
+    setEditModal({ isOpen: true, activity });
+  };
+
+  const handleEditActiveSession = (activeSession: { id: string; type: ActivityType; startTime: Date; details: any }) => {
+    // Convert ActiveSession to Activity format for editing
+    const activity = {
+      id: activeSession.id,
+      type: activeSession.type,
+      startTime: activeSession.startTime.toISOString(),
+      endTime: null, // Active sessions don't have endTime
+      details: activeSession.details,
+      createdAt: new Date().toISOString(),
+    };
+    setEditModal({ isOpen: true, activity });
+  };
+
+  const closeEditModal = () => {
+    setEditModal({ isOpen: false, activity: null });
+  };
+
+  const handleDeleteActivity = (activity: RecentActivity) => {
+    setDeleteConfirmation({ show: true, activity });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmation.activity) return;
+    
+    try {
+      const response = await fetch(`/api/activities/${childId}?activityId=${deleteConfirmation.activity.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete activity');
+      }
+
+      showToast('Activity deleted successfully', 'success');
+      invalidateDashboard(childId); // Invalidate and refresh dashboard data
+      setDeleteConfirmation({ show: false, activity: null });
+    } catch (error) {
+      console.error('Error deleting activity:', error);
+      showToast(error instanceof Error ? error.message : 'Failed to delete activity', 'error');
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirmation({ show: false, activity: null });
   };
 
   const handleStopSession = async (sessionId: string) => {
@@ -48,8 +133,8 @@ export default function DashboardCards({ childId }: DashboardCardsProps) {
         throw new Error('Failed to stop session');
       }
 
-      // Refresh the dashboard data
-      refetch();
+      // Invalidate and refresh the dashboard data
+      invalidateDashboard(childId);
       
       showToast("Activity session has been ended successfully.", 'success');
     } catch (error) {
@@ -100,16 +185,24 @@ export default function DashboardCards({ childId }: DashboardCardsProps) {
           lastSleep={lastSleep}
           onClick={() => openModal('sleep')}
           onStopSession={handleStopSession}
+          onEditActivity={handleEditActivity}
+          onEditActiveSession={handleEditActiveSession}
+          onDeleteActivity={handleDeleteActivity}
         />
         <FeedCard 
           activeSession={activeSessions.find(s => s.type === 'feed')}
           lastFeed={lastFeed}
           onClick={() => openModal('feed')}
           onStopSession={handleStopSession}
+          onEditActivity={handleEditActivity}
+          onEditActiveSession={handleEditActiveSession}
+          onDeleteActivity={handleDeleteActivity}
         />
         <DiaperCard 
           lastDiaper={lastDiaper}
           onClick={() => openModal('diaper')}
+          onEditActivity={handleEditActivity}
+          onDeleteActivity={handleDeleteActivity}
         />
       </div>
 
@@ -125,7 +218,51 @@ export default function DashboardCards({ childId }: DashboardCardsProps) {
             modalState.activityType === 'feed' ? lastFeed :
             lastDiaper
           }
+          childId={childId}
         />
+      )}
+
+      {/* Edit Activity Modal */}
+      {editModal.activity && (
+        <EditActivityModal
+          isOpen={editModal.isOpen}
+          onClose={closeEditModal}
+          activity={editModal.activity}
+          childId={childId}
+          onSave={() => {
+            invalidateDashboard(childId);
+            closeEditModal();
+            showToast('Activity updated successfully', 'success');
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmation.show && deleteConfirmation.activity && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
+              Delete Activity
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this {deleteConfirmation.activity.type} activity? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

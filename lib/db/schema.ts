@@ -126,8 +126,15 @@ export const aiInteractions = pgTable('ai_interactions', {
   activityId: uuid('activity_id').references(() => activities.id, { onDelete: 'cascade' }),
   errorMessage: text('error_message'),
   
+  // Feedback fields for improving AI performance
+  userFeedback: varchar('user_feedback', { length: 20 }).default('none'), // 'thumbs_up', 'thumbs_down', 'none'
+  feedbackNote: text('feedback_note'), // Optional note from user
+  langsmithTraceId: text('langsmith_trace_id'), // Link to LangSmith trace
+  
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, () => [
+  check('valid_user_feedback', sql`user_feedback IN ('thumbs_up', 'thumbs_down', 'none')`),
+]);
 
 // ============================================================================
 // ACTIVITIES RELATIONS

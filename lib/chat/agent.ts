@@ -1,5 +1,5 @@
 import { openai } from '@ai-sdk/openai';
-import { streamText, tool } from 'ai';
+import { streamText, generateText, tool } from 'ai';
 import { z } from 'zod';
 import { AISDKExporter } from 'langsmith/vercel';
 import { 
@@ -20,10 +20,11 @@ export interface ChatRequest {
   userId: string;
   childId: string;
   deviceTime: string; // ISO format with timezone: "2025-01-03T12:30:33+05:00"
+  streaming?: boolean; // If true, returns streaming response; if false, returns complete text
 }
 
 export async function processChatRequest(request: ChatRequest) {
-  const { messages, userId, childId, deviceTime } = request;
+  const { messages, userId, childId, deviceTime, streaming = true } = request;
 
   // Get the user's input message (last message should be from user)
   const userMessage = messages[messages.length - 1];
@@ -78,22 +79,25 @@ Current Active Sessions: ${activeSessions.length > 0 ?
     });
     interactionId = interaction.id;
 
-    const result = streamText({
-    model: openai('gpt-4.1'),
-    messages: messagesWithContext,
-    maxSteps: 5,
-    experimental_telemetry: AISDKExporter.getSettings({
-      runId: interactionId,
-      metadata: {
-        userId,
-        childId,
-        userInput: userInput.substring(0, 100), // First 100 chars for context
-        environment: process.env.VERCEL_ENV || 'development', // preview, production, development
-        deployment: process.env.VERCEL_URL ? 'vercel' : 'local',
-        region: process.env.VERCEL_REGION || 'local',
-        gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'unknown',
-      }
-    }),
+    console.log(`Created AI interaction ${interactionId} with LangSmith trace ID: ${interactionId}`);
+
+    // Shared configuration for both streaming and non-streaming calls
+    const aiConfig = {
+      model: openai('gpt-4.1'),
+      messages: messagesWithContext,
+      maxSteps: 5,
+      experimental_telemetry: AISDKExporter.getSettings({
+        runId: interactionId,
+        metadata: {
+          userId,
+          childId,
+          userInput: userInput.substring(0, 100), // First 100 chars for context
+          environment: process.env.VERCEL_ENV || 'development', // preview, production, development
+          deployment: process.env.VERCEL_URL ? 'vercel' : 'local',
+          region: process.env.VERCEL_REGION || 'local',
+          gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'unknown',
+        }
+      }),
     tools: {
       parseUserTime: tool({
         description: 'Convert AI-determined time to UTC for database storage. Call this when user mentions any time reference.',
@@ -179,7 +183,7 @@ Current Active Sessions: ${activeSessions.length > 0 ?
       }),
 
       startActivity: tool({
-        description: 'Start a new activity session (sleep or feed)',
+        description: 'Start a new activity session (sleep or feed) - for feeding, always defaults to nursing',
         parameters: z.object({
           type: z.enum(['sleep', 'feed']).describe('Type of activity to start'),
           startTimeUTC: z.string().optional().describe('Start time in UTC ISO format from parseUserTime'),
@@ -192,11 +196,20 @@ Current Active Sessions: ${activeSessions.length > 0 ?
               return errorResult;
             }
 
+            // Build details for feeding sessions - always nursing for start activity
+            let details: ActivityDetails | undefined;
+            if (type === 'feed') {
+              details = {
+                type: 'nursing'
+              } as NursingDetails;
+            }
+
             const activity = await startActivity({
               childId,
               createdBy: userId,
               type,
-              ...(startTimeUTC && { startTime: new Date(startTimeUTC) })
+              ...(startTimeUTC && { startTime: new Date(startTimeUTC) }),
+              ...(details && { details })
             });
             
             // Associate this activity with the AI interaction
@@ -272,27 +285,21 @@ Current Active Sessions: ${activeSessions.length > 0 ?
             let details: ActivityDetails;
             
             if (type === 'feed') {
-              if (feedType === 'bottle' && volume) {
-                details = {
-                  type: 'bottle',
-                  volume,
-                  unit: unit || 'ml'
-                } as BottleDetails;
-              } else if (feedType === 'nursing') {
-                details = {
-                  type: 'nursing',
-                  ...(leftDuration && { leftDuration }),
-                  ...(rightDuration && { rightDuration }),
-                  ...(duration && { totalDuration: duration })
-                } as NursingDetails;
-              } else if (volume) {
+              // If volume is explicitly mentioned, use bottle feeding
+              if (volume) {
                 details = {
                   type: 'bottle',
                   volume,
                   unit: unit || 'ml'
                 } as BottleDetails;
               } else {
-                details = { type: 'nursing' } as NursingDetails;
+                // Default to nursing for all other feeding scenarios
+                details = {
+                  type: 'nursing',
+                  ...(leftDuration && { leftDuration }),
+                  ...(rightDuration && { rightDuration }),
+                  ...(duration && { totalDuration: duration })
+                } as NursingDetails;
               }
             } else if (type === 'diaper') {
               details = {
@@ -388,24 +395,20 @@ Current Active Sessions: ${activeSessions.length > 0 ?
             
             // Check if we have feed details
             if (feedType || volume || leftDuration || rightDuration) {
-              if (feedType === 'bottle' && volume) {
+              // If volume is explicitly mentioned, use bottle feeding
+              if (volume) {
                 details = {
                   type: 'bottle',
                   volume,
                   unit: unit || 'ml'
                 } as BottleDetails;
-              } else if (feedType === 'nursing') {
+              } else {
+                // Default to nursing for all other feeding scenarios
                 details = {
                   type: 'nursing',
                   ...(leftDuration && { leftDuration }),
                   ...(rightDuration && { rightDuration })
                 } as NursingDetails;
-              } else if (volume) {
-                details = {
-                  type: 'bottle',
-                  volume,
-                  unit: unit || 'ml'
-                } as BottleDetails;
               }
             }
             
@@ -447,19 +450,32 @@ STEP 1: Parse time if mentioned
 STEP 2: Choose smart action based on context and active sessions
 - Call parseUserTime with your calculated time in ISO format with timezone if time mentioned
 - Use the returned UTC time for subsequent logging actions
+- ALWAYS respond with times in user's local timezone, never UTC
+
 RECENT active same type (judge reasonableness):
 - "slept 2 hours" + recent sleep → updateActivity with calculated endTimeUTC
 - "finished eating" + recent feed → updateActivity with endTimeUTC (now)
-- "started sleeping" + recent sleep → offer to updateActivity with new start time
-- User confirms update → updateActivity with new startTimeUTC
+- "started sleeping" + recent sleep → if reasonable, update existing session; if not, create new one
 
-STALE active same type (use judgment):
-- "started sleeping" + old sleep → ask: "End old session first?"
-- "slept 2 hours" + old sleep → ask: "New entry or update old one?"
+STALE active same type (be permissive):
+- "started sleeping" + old sleep → create new sleep session (babies can have multiple sleep periods)
+- "slept 2 hours" + old sleep → create new completed sleep entry
+- Default to creating new activities rather than asking clarification
 
-DIFFERENT type active:
-- "sleeping" + active feed → ask: "End feeding to start sleep?"
-- "started eating" + active sleep → ask: "End sleep to start feeding?"
+CONCURRENT ACTIVITIES (allow overlap):
+- Sleep and feeding can happen simultaneously (babies often eat then sleep)
+- "sleeping" + active feed → create new sleep session without ending feed
+- "started eating" + active sleep → create new feed session without ending sleep
+- Be permissive and create activities as requested
+
+FEEDING TYPE LOGIC:
+- startActivity for feeding: ALWAYS nursing (no volume parameters)
+- logActivity with volume mentioned → bottle feeding (e.g., "drank 100ml", "had 4oz")
+- logActivity without volume → nursing (e.g., "fed for 20 minutes", "finished nursing")
+- Examples: 
+  * "start feeding" → startActivity (nursing)
+  * "baby drank 120ml" → logActivity (bottle)
+  * "fed for 20 minutes" → logActivity (nursing)
 
 DIAPER changes:
 - Always create new entries with logActivity, no conflicts
@@ -470,50 +486,80 @@ NO active sessions:
 - "X Y ago" → logActivity at past time
 - "is X-ing" → startActivity now
 
-UPDATE scenarios (replaces old endActivity tool):
-- When user wants to modify existing activity times or details
+UPDATE scenarios:
+- When user explicitly wants to modify existing activity times or details
 - Use updateActivity tool with activityId from active sessions
 - Can update startTime, endTime, or activity-specific details
 - To END activities: updateActivity with endTimeUTC parameter
 
 Key principles:
-- Use intelligent judgment for "recent" vs "stale" 
-- answer the question in very concise manner, 1-2 short sentences max. 
-- Smart updates over unnecessary conflicts
-- Ask clarification only for genuine ambiguity
-- Always confirm with local time context`,
-    });
+- BE PERMISSIVE: Create activities as requested, minimize clarification
+- Use intelligent judgment but favor action over asking
+- Answer in very concise manner, 1-2 short sentences max
+- ALWAYS format times in user's local timezone in responses
+- Only ask clarification for genuinely ambiguous time references
+- When in doubt, create the activity rather than asking`,
+    };
 
-    // Handle completion to update the interaction record
-    result.finishReason.then(async () => {
+    // Helper function to update AI interaction record
+    async function updateAiInteraction(
+      interactionId: string,
+      responseText: string,
+      functionCalls: any[],
+      associatedActivityId?: string | null
+    ) {
+      const updateData: any = {
+        aiResponse: responseText,
+        functionCalls: functionCalls.length > 0 ? functionCalls : null,
+      };
+      
+      if (associatedActivityId) {
+        updateData.activityId = associatedActivityId;
+      }
+      
+      await db.update(aiInteractions)
+        .set(updateData)
+        .where(eq(aiInteractions.id, interactionId));
+
+      if (associatedActivityId) {
+        console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId} and LangSmith trace ${interactionId}`);
+      }
+    }
+
+    // Use streaming or non-streaming based on the parameter
+    if (streaming) {
+      const result = streamText(aiConfig);
+
+      // Handle completion to update the interaction record (streaming)
+      result.finishReason.then(async () => {
+        try {
+          if (interactionId) {
+            const responseText = await result.text;
+            await updateAiInteraction(interactionId, responseText, functionCalls, associatedActivityId);
+          }
+        } catch (error) {
+          console.error('Error updating AI interaction:', error);
+        }
+      }).catch((error) => {
+        console.error('Error in finishReason handler:', error);
+      });
+
+      return result;
+    } else {
+      // Non-streaming version - get complete result immediately
+      const result = await generateText(aiConfig);
+      
+      // Update the interaction with the AI response immediately
       try {
         if (interactionId) {
-          // Get the final response text
-          const responseText = await result.text;
-          
-          // Update the interaction with the AI response, function calls, and activity association
-          await db.update(aiInteractions)
-            .set({
-              aiResponse: responseText,
-              functionCalls: functionCalls.length > 0 ? functionCalls : null,
-              ...(associatedActivityId && { activityId: associatedActivityId })
-            })
-            .where(eq(aiInteractions.id, interactionId));
-
-          // Note: LangSmith trace is already linked via runId = interactionId
-          // Activity ID is now available in our database record and can be cross-referenced
-          if (associatedActivityId) {
-            console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId} and LangSmith trace`);
-          }
+          await updateAiInteraction(interactionId, result.text, functionCalls, associatedActivityId);
         }
       } catch (error) {
         console.error('Error updating AI interaction:', error);
       }
-    }).catch((error) => {
-      console.error('Error in finishReason handler:', error);
-    });
 
-    return result;
+      return result;
+    }
     
   } catch (error) {
     // Log error in the interaction record

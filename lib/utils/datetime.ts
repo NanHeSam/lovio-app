@@ -21,6 +21,17 @@ export function getLocalTimeWithTimezone(): string {
 }
 
 /**
+ * Convert a UTC date to local datetime-local format for HTML inputs
+ * @param date Date in UTC
+ * @returns String in format "YYYY-MM-DDTHH:MM" in local timezone
+ */
+export function toLocalDatetimeString(date: Date): string {
+  const offset = date.getTimezoneOffset();
+  const localTime = new Date(date.getTime() - (offset * 60000));
+  return localTime.toISOString().slice(0, 16);
+}
+
+/**
  * Calculate duration in minutes between two dates
  * @param startTime Start date
  * @param endTime End date (defaults to current time if not provided)
