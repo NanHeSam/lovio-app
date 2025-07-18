@@ -9,6 +9,12 @@ export function cn(...inputs: ClassValue[]) {
  * Build LangSmith trace URL from environment variables
  */
 export function buildLangsmithTraceUrl(traceId: string): string | null {
+  // Validate traceId parameter
+  if (!traceId || traceId.trim() === '') {
+    console.warn('Invalid traceId provided to buildLangsmithTraceUrl');
+    return null;
+  }
+  
   const orgId = process.env.LANGCHAIN_ORG_ID;
   const projectId = process.env.LANGCHAIN_PROJECT_ID;
   
