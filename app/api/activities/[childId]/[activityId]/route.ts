@@ -51,7 +51,6 @@ export async function GET(
           aiResponse: aiInteractions.aiResponse,
           userFeedback: aiInteractions.userFeedback,
           feedbackNote: aiInteractions.feedbackNote,
-          langsmithTraceId: aiInteractions.langsmithTraceId,
           createdAt: aiInteractions.createdAt,
         }
       })
@@ -80,8 +79,8 @@ export async function GET(
       child: result.child,
       createdByUser: result.createdByUser,
       aiInteraction: result.aiInteraction.id ? result.aiInteraction : null,
-      langsmithTraceUrl: result.aiInteraction.langsmithTraceId 
-        ? `https://smith.langchain.com/o/YOUR_ORG_ID/p/lovio-app/r/${result.aiInteraction.langsmithTraceId}`
+      langsmithTraceUrl: result.aiInteraction.id 
+        ? `https://smith.langchain.com/o/YOUR_ORG_ID/p/lovio-app/r/${result.aiInteraction.id}`
         : null
     });
 

@@ -59,8 +59,7 @@ export async function POST(request: NextRequest) {
     // Find the AI interaction associated with this activity
     const aiInteraction = await db
       .select({ 
-        id: aiInteractions.id,
-        langsmithTraceId: aiInteractions.langsmithTraceId 
+        id: aiInteractions.id
       })
       .from(aiInteractions)
       .where(
@@ -87,38 +86,31 @@ export async function POST(request: NextRequest) {
       .where(eq(aiInteractions.id, aiInteraction[0].id))
       .returning();
 
-    // Send feedback to LangSmith
-    const langsmithTraceId = aiInteraction[0].langsmithTraceId;
-    if (langsmithTraceId) {
-      try {
-        const langsmithClient = new Client({
-          apiKey: process.env.LANGCHAIN_API_KEY,
-        });
+    // Send feedback to LangSmith using the AI interaction ID as the trace ID
+    const langsmithTraceId = aiInteraction[0].id;
+    try {
+      const langsmithClient = new Client({
+        apiKey: process.env.LANGCHAIN_API_KEY,
+      });
 
-        // Submit feedback to LangSmith
-        await langsmithClient.createFeedback(langsmithTraceId, {
-          score: feedback === 'thumbs_up' ? 1 : 0,
-          value: feedback === 'thumbs_up' ? 'positive' : 'negative',
-          comment: note || undefined,
-          feedbackSourceType: 'app',
-          key: 'user_feedback'
-        });
+      // Submit feedback to LangSmith
+      await langsmithClient.createFeedback(langsmithTraceId, 'user_feedback', {
+        score: feedback === 'thumbs_up' ? 1 : 0,
+        value: feedback === 'thumbs_up' ? 'positive' : 'negative',
+        comment: note || undefined,
+        feedbackSourceType: 'app'
+      });
 
-        console.log(`Feedback sent to LangSmith for trace ${langsmithTraceId}: ${feedback}`);
-      } catch (error) {
-        console.error('Error sending feedback to LangSmith:', error);
-        // Don't fail the request if LangSmith feedback fails
-      }
-    } else {
-      console.log(`No LangSmith trace ID found for interaction ${aiInteraction[0].id}`);
+      console.log(`Feedback sent to LangSmith for trace ${langsmithTraceId}: ${feedback}`);
+    } catch (error) {
+      console.error('Error sending feedback to LangSmith:', error);
+      // Don't fail the request if LangSmith feedback fails
     }
 
     return NextResponse.json({
       message: 'Feedback submitted successfully',
       feedbackId: updatedInteraction[0].id,
-      langsmithTraceUrl: langsmithTraceId 
-        ? `https://smith.langchain.com/o/YOUR_ORG_ID/p/lovio-app/r/${langsmithTraceId}`
-        : null
+      langsmithTraceUrl: `https://smith.langchain.com/o/YOUR_ORG_ID/p/lovio-app/r/${langsmithTraceId}`
     });
 
   } catch (error) {

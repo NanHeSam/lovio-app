@@ -79,10 +79,7 @@ Current Active Sessions: ${activeSessions.length > 0 ?
     });
     interactionId = interaction.id;
 
-    // Update the interaction with its own ID as the trace ID
-    await db.update(aiInteractions)
-      .set({ langsmithTraceId: interactionId })
-      .where(eq(aiInteractions.id, interactionId));
+    console.log(`Created AI interaction ${interactionId} with LangSmith trace ID: ${interactionId}`);
 
     // Shared configuration for both streaming and non-streaming calls
     const aiConfig = {
@@ -501,8 +498,7 @@ Key principles:
       interactionId: string,
       responseText: string,
       functionCalls: any[],
-      associatedActivityId?: string | null,
-      langsmithRunId?: string
+      associatedActivityId?: string | null
     ) {
       const updateData: any = {
         aiResponse: responseText,
@@ -513,16 +509,12 @@ Key principles:
         updateData.activityId = associatedActivityId;
       }
       
-      if (langsmithRunId) {
-        updateData.langsmithTraceId = langsmithRunId;
-      }
-      
       await db.update(aiInteractions)
         .set(updateData)
         .where(eq(aiInteractions.id, interactionId));
 
       if (associatedActivityId) {
-        console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId}${langsmithRunId ? ' and LangSmith trace ' + langsmithRunId : ''}`);
+        console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId} and LangSmith trace ${interactionId}`);
       }
     }
 
@@ -535,8 +527,7 @@ Key principles:
         try {
           if (interactionId) {
             const responseText = await result.text;
-            // For streaming, we use the interactionId as the run ID since it's set in experimental_telemetry
-            await updateAiInteraction(interactionId, responseText, functionCalls, associatedActivityId, interactionId);
+            await updateAiInteraction(interactionId, responseText, functionCalls, associatedActivityId);
           }
         } catch (error) {
           console.error('Error updating AI interaction:', error);
@@ -553,8 +544,7 @@ Key principles:
       // Update the interaction with the AI response immediately
       try {
         if (interactionId) {
-          // For non-streaming, we use the interactionId as the run ID since it's set in experimental_telemetry
-          await updateAiInteraction(interactionId, result.text, functionCalls, associatedActivityId, interactionId);
+          await updateAiInteraction(interactionId, result.text, functionCalls, associatedActivityId);
         }
       } catch (error) {
         console.error('Error updating AI interaction:', error);
