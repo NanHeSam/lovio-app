@@ -183,7 +183,7 @@ Current Active Sessions: ${activeSessions.length > 0 ?
       }),
 
       startActivity: tool({
-        description: 'Start a new activity session (sleep or feed)',
+        description: 'Start a new activity session (sleep or feed) - for feeding, always defaults to nursing',
         parameters: z.object({
           type: z.enum(['sleep', 'feed']).describe('Type of activity to start'),
           startTimeUTC: z.string().optional().describe('Start time in UTC ISO format from parseUserTime'),
@@ -196,11 +196,20 @@ Current Active Sessions: ${activeSessions.length > 0 ?
               return errorResult;
             }
 
+            // Build details for feeding sessions - always nursing for start activity
+            let details: ActivityDetails | undefined;
+            if (type === 'feed') {
+              details = {
+                type: 'nursing'
+              } as NursingDetails;
+            }
+
             const activity = await startActivity({
               childId,
               createdBy: userId,
               type,
-              ...(startTimeUTC && { startTime: new Date(startTimeUTC) })
+              ...(startTimeUTC && { startTime: new Date(startTimeUTC) }),
+              ...(details && { details })
             });
             
             // Associate this activity with the AI interaction
@@ -460,9 +469,13 @@ CONCURRENT ACTIVITIES (allow overlap):
 - Be permissive and create activities as requested
 
 FEEDING TYPE LOGIC:
-- If user mentions volume/amount (e.g., "100ml", "4oz") → use bottle feeding
-- All other feeding scenarios (start/stop, duration, "nursing", "feeding") → use nursing
-- Examples: "fed for 20 minutes" = nursing, "drank 120ml" = bottle
+- startActivity for feeding: ALWAYS nursing (no volume parameters)
+- logActivity with volume mentioned → bottle feeding (e.g., "drank 100ml", "had 4oz")
+- logActivity without volume → nursing (e.g., "fed for 20 minutes", "finished nursing")
+- Examples: 
+  * "start feeding" → startActivity (nursing)
+  * "baby drank 120ml" → logActivity (bottle)
+  * "fed for 20 minutes" → logActivity (nursing)
 
 DIAPER changes:
 - Always create new entries with logActivity, no conflicts
