@@ -276,27 +276,21 @@ Current Active Sessions: ${activeSessions.length > 0 ?
             let details: ActivityDetails;
             
             if (type === 'feed') {
-              if (feedType === 'bottle' && volume) {
-                details = {
-                  type: 'bottle',
-                  volume,
-                  unit: unit || 'ml'
-                } as BottleDetails;
-              } else if (feedType === 'nursing') {
-                details = {
-                  type: 'nursing',
-                  ...(leftDuration && { leftDuration }),
-                  ...(rightDuration && { rightDuration }),
-                  ...(duration && { totalDuration: duration })
-                } as NursingDetails;
-              } else if (volume) {
+              // If volume is explicitly mentioned, use bottle feeding
+              if (volume) {
                 details = {
                   type: 'bottle',
                   volume,
                   unit: unit || 'ml'
                 } as BottleDetails;
               } else {
-                details = { type: 'nursing' } as NursingDetails;
+                // Default to nursing for all other feeding scenarios
+                details = {
+                  type: 'nursing',
+                  ...(leftDuration && { leftDuration }),
+                  ...(rightDuration && { rightDuration }),
+                  ...(duration && { totalDuration: duration })
+                } as NursingDetails;
               }
             } else if (type === 'diaper') {
               details = {
@@ -392,24 +386,20 @@ Current Active Sessions: ${activeSessions.length > 0 ?
             
             // Check if we have feed details
             if (feedType || volume || leftDuration || rightDuration) {
-              if (feedType === 'bottle' && volume) {
+              // If volume is explicitly mentioned, use bottle feeding
+              if (volume) {
                 details = {
                   type: 'bottle',
                   volume,
                   unit: unit || 'ml'
                 } as BottleDetails;
-              } else if (feedType === 'nursing') {
+              } else {
+                // Default to nursing for all other feeding scenarios
                 details = {
                   type: 'nursing',
                   ...(leftDuration && { leftDuration }),
                   ...(rightDuration && { rightDuration })
                 } as NursingDetails;
-              } else if (volume) {
-                details = {
-                  type: 'bottle',
-                  volume,
-                  unit: unit || 'ml'
-                } as BottleDetails;
               }
             }
             
@@ -468,6 +458,11 @@ CONCURRENT ACTIVITIES (allow overlap):
 - "sleeping" + active feed → create new sleep session without ending feed
 - "started eating" + active sleep → create new feed session without ending sleep
 - Be permissive and create activities as requested
+
+FEEDING TYPE LOGIC:
+- If user mentions volume/amount (e.g., "100ml", "4oz") → use bottle feeding
+- All other feeding scenarios (start/stop, duration, "nursing", "feeding") → use nursing
+- Examples: "fed for 20 minutes" = nursing, "drank 120ml" = bottle
 
 DIAPER changes:
 - Always create new entries with logActivity, no conflicts
