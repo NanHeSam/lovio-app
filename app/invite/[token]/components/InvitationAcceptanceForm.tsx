@@ -23,6 +23,10 @@ export function InvitationAcceptanceForm({ invitation, userId }: InvitationAccep
     setIsAccepting(true);
     setMessage(null);
     
+    // Create AbortController for timeout handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
     try {
       const response = await fetch('/api/invitations/accept', {
         method: 'POST',
@@ -32,6 +36,7 @@ export function InvitationAcceptanceForm({ invitation, userId }: InvitationAccep
         body: JSON.stringify({
           token: invitation.token,
         }),
+        signal: controller.signal,
       });
 
       const data = await response.json();
@@ -46,8 +51,13 @@ export function InvitationAcceptanceForm({ invitation, userId }: InvitationAccep
         setMessage({ type: 'error', text: data.message });
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to accept invitation. Please try again.' });
+      if (error instanceof Error && error.name === 'AbortError') {
+        setMessage({ type: 'error', text: 'Request timed out. Please try again.' });
+      } else {
+        setMessage({ type: 'error', text: 'Failed to accept invitation. Please try again.' });
+      }
     } finally {
+      clearTimeout(timeoutId);
       setIsAccepting(false);
     }
   };
@@ -55,6 +65,10 @@ export function InvitationAcceptanceForm({ invitation, userId }: InvitationAccep
   const handleReject = async () => {
     setIsRejecting(true);
     setMessage(null);
+    
+    // Create AbortController for timeout handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
     
     try {
       const response = await fetch('/api/invitations/reject', {
@@ -65,6 +79,7 @@ export function InvitationAcceptanceForm({ invitation, userId }: InvitationAccep
         body: JSON.stringify({
           token: invitation.token,
         }),
+        signal: controller.signal,
       });
 
       const data = await response.json();
@@ -79,8 +94,13 @@ export function InvitationAcceptanceForm({ invitation, userId }: InvitationAccep
         setMessage({ type: 'error', text: data.message });
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to decline invitation. Please try again.' });
+      if (error instanceof Error && error.name === 'AbortError') {
+        setMessage({ type: 'error', text: 'Request timed out. Please try again.' });
+      } else {
+        setMessage({ type: 'error', text: 'Failed to decline invitation. Please try again.' });
+      }
     } finally {
+      clearTimeout(timeoutId);
       setIsRejecting(false);
     }
   };

@@ -1,6 +1,7 @@
 import { db } from './index';
 import { activities, children, users, userChildren, aiInteractions, invitations } from './schema';
 import { eq, and, isNull, desc, gte, lte, inArray } from 'drizzle-orm';
+import { randomBytes } from 'crypto';
 import { formatTimeAgo } from '../utils/datetime';
 import { buildLangsmithTraceUrl } from '../utils';
 import type { 
@@ -662,7 +663,7 @@ export async function getAIInteractionsWithTraceInfo(params: {
  * Generate a secure invitation token
  */
 function generateInvitationToken(): string {
-  return require('crypto').randomBytes(32).toString('hex');
+  return randomBytes(32).toString('hex');
 }
 
 /**
@@ -902,7 +903,7 @@ export async function acceptInvitation(params: {
     .values({
       userId: acceptingUserId,
       childId: invitation.childId,
-      role: invitation.inviteeRole,
+      role: invitation.inviteeRole as UserRole,
       permissions: { read: true, write: true, admin: false },
     });
 
