@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { createInvitation } from '@/lib/db/queries';
 import { InvitationRole } from '@/lib/db/types';
 import { sendInvitationEmail } from '@/lib/email';
+import { validateAndGetBaseUrl } from '@/lib/utils/url';
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,8 +48,9 @@ export async function POST(request: NextRequest) {
       expiresInDays: 7, // Invitations expire in 7 days
     });
 
-    // Generate invitation URL
-    const invitationUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/invite/${invitation.token}`;
+    // Generate invitation URL with validation
+    const baseUrl = validateAndGetBaseUrl();
+    const invitationUrl = `${baseUrl}/invite/${invitation.token}`;
 
     // Send invitation email
     const emailResult = await sendInvitationEmail({

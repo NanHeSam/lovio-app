@@ -1,13 +1,13 @@
 import { Resend } from 'resend';
 import { InvitationEmail } from '@/emails/invitation-email';
 import { InvitationWithDetails } from '@/lib/db/types';
+import { validateAndGetBaseUrl, validateEmailEnvironment } from '@/lib/utils/url';
 
-// Initialize Resend with API key
+// Initialize Resend with API key (will be validated when functions are called)
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Email configuration
-const fromEmail = process.env.RESEND_FROM_EMAIL || 'Lovio <onboarding@resend.dev>';
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+const fromEmail = process.env.RESEND_FROM_EMAIL || 'Lovio <sam@eveoky.com>';
 
 export interface SendInvitationEmailParams {
   invitation: InvitationWithDetails;
@@ -16,6 +16,14 @@ export interface SendInvitationEmailParams {
 
 export async function sendInvitationEmail({ invitation, invitationUrl }: SendInvitationEmailParams) {
   try {
+    // Validate environment variables when actually sending email
+    validateEmailEnvironment();
+    
+    // Validate that invitation URL is properly formatted
+    if (!invitationUrl || !invitationUrl.startsWith('http')) {
+      throw new Error('Invalid invitation URL provided');
+    }
+
     const expirationDate = new Intl.DateTimeFormat('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -59,6 +67,10 @@ export async function sendInvitationEmail({ invitation, invitationUrl }: SendInv
 
 export async function sendTestEmail(to: string) {
   try {
+    // Validate environment variables when actually sending email
+    validateEmailEnvironment();
+    
+    const baseUrl = validateAndGetBaseUrl();
     const emailData = await resend.emails.send({
       from: fromEmail,
       to,
