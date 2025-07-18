@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
 import { aiInteractions, activities } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { Client } from 'langsmith';
 
 /**
  * POST /api/feedback
@@ -57,7 +58,10 @@ export async function POST(request: NextRequest) {
 
     // Find the AI interaction associated with this activity
     const aiInteraction = await db
-      .select({ id: aiInteractions.id })
+      .select({ 
+        id: aiInteractions.id,
+        langsmithTraceId: aiInteractions.langsmithTraceId 
+      })
       .from(aiInteractions)
       .where(
         and(
@@ -79,26 +83,42 @@ export async function POST(request: NextRequest) {
       .set({
         userFeedback: feedback,
         feedbackNote: note || null,
-        langsmithTraceId: aiInteraction[0].id, // Use interaction ID as trace ID
       })
       .where(eq(aiInteractions.id, aiInteraction[0].id))
       .returning();
 
-    // TODO: Send feedback to LangSmith
-    // This would be implemented based on your LangSmith integration
-    if (feedback === 'thumbs_down') {
-      console.log(`Negative feedback for activity ${activityId}:`, {
-        interactionId: aiInteraction[0].id,
-        feedback,
-        note,
-        langsmithTraceUrl: `https://smith.langchain.com/o/YOUR_ORG_ID/p/lovio-app/r/${aiInteraction[0].id}`
-      });
+    // Send feedback to LangSmith
+    const langsmithTraceId = aiInteraction[0].langsmithTraceId;
+    if (langsmithTraceId) {
+      try {
+        const langsmithClient = new Client({
+          apiKey: process.env.LANGCHAIN_API_KEY,
+        });
+
+        // Submit feedback to LangSmith
+        await langsmithClient.createFeedback(langsmithTraceId, {
+          score: feedback === 'thumbs_up' ? 1 : 0,
+          value: feedback === 'thumbs_up' ? 'positive' : 'negative',
+          comment: note || undefined,
+          feedbackSourceType: 'app',
+          key: 'user_feedback'
+        });
+
+        console.log(`Feedback sent to LangSmith for trace ${langsmithTraceId}: ${feedback}`);
+      } catch (error) {
+        console.error('Error sending feedback to LangSmith:', error);
+        // Don't fail the request if LangSmith feedback fails
+      }
+    } else {
+      console.log(`No LangSmith trace ID found for interaction ${aiInteraction[0].id}`);
     }
 
     return NextResponse.json({
       message: 'Feedback submitted successfully',
       feedbackId: updatedInteraction[0].id,
-      langsmithTraceUrl: `https://smith.langchain.com/o/YOUR_ORG_ID/p/lovio-app/r/${aiInteraction[0].id}`
+      langsmithTraceUrl: langsmithTraceId 
+        ? `https://smith.langchain.com/o/YOUR_ORG_ID/p/lovio-app/r/${langsmithTraceId}`
+        : null
     });
 
   } catch (error) {

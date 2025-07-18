@@ -496,7 +496,8 @@ Key principles:
       interactionId: string,
       responseText: string,
       functionCalls: any[],
-      associatedActivityId?: string | null
+      associatedActivityId?: string | null,
+      langsmithRunId?: string
     ) {
       const updateData: any = {
         aiResponse: responseText,
@@ -507,12 +508,16 @@ Key principles:
         updateData.activityId = associatedActivityId;
       }
       
+      if (langsmithRunId) {
+        updateData.langsmithTraceId = langsmithRunId;
+      }
+      
       await db.update(aiInteractions)
         .set(updateData)
         .where(eq(aiInteractions.id, interactionId));
 
       if (associatedActivityId) {
-        console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId}${streaming ? ' and LangSmith trace' : ''}`);
+        console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId}${langsmithRunId ? ' and LangSmith trace ' + langsmithRunId : ''}`);
       }
     }
 
@@ -525,7 +530,8 @@ Key principles:
         try {
           if (interactionId) {
             const responseText = await result.text;
-            await updateAiInteraction(interactionId, responseText, functionCalls, associatedActivityId);
+            // For streaming, we use the interactionId as the run ID since it's set in experimental_telemetry
+            await updateAiInteraction(interactionId, responseText, functionCalls, associatedActivityId, interactionId);
           }
         } catch (error) {
           console.error('Error updating AI interaction:', error);
@@ -542,7 +548,8 @@ Key principles:
       // Update the interaction with the AI response immediately
       try {
         if (interactionId) {
-          await updateAiInteraction(interactionId, result.text, functionCalls, associatedActivityId);
+          // For non-streaming, we use the interactionId as the run ID since it's set in experimental_telemetry
+          await updateAiInteraction(interactionId, result.text, functionCalls, associatedActivityId, interactionId);
         }
       } catch (error) {
         console.error('Error updating AI interaction:', error);
