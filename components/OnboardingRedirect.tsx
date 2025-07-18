@@ -1,54 +1,112 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
+
+interface OnboardingState {
+  isInitialized: boolean;
+  hasChildren: boolean | null;
+  isLoading: boolean;
+  error: string | null;
+  retryCount: number;
+}
 
 export default function OnboardingRedirect() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
   const pathname = usePathname();
+  
+  const [state, setState] = useState<OnboardingState>({
+    isInitialized: false,
+    hasChildren: null,
+    isLoading: false,
+    error: null,
+    retryCount: 0
+  });
 
-  useEffect(() => {
+  // Calculate delay with exponential backoff
+  const getRetryDelay = useCallback((retryCount: number) => {
+    return Math.min(1000 * Math.pow(2, retryCount), 10000); // Max 10 seconds
+  }, []);
+
+  const checkOnboardingStatus = useCallback(async () => {
     if (!isLoaded || !user) return;
 
-    const checkOnboardingStatus = async () => {
-      try {
-        const response = await fetch('/api/user/has-children');
-        if (!response.ok) return;
+    setState(prev => ({ ...prev, isLoading: true, error: null }));
 
-        const { hasChildren } = await response.json();
-        
-        const isOnOnboardingPage = pathname === '/onboarding';
-        const isOnInvitationPage = pathname.startsWith('/invite/');
-
-        // Skip redirect logic if user is on an invitation page
-        if (isOnInvitationPage) {
-          return;
-        }
-
-        // Add a small delay to avoid racing conditions with user initialization
-        setTimeout(() => {
-          // If user has no children and not on onboarding page, redirect to onboarding
-          if (!hasChildren && !isOnOnboardingPage) {
-            router.push('/onboarding');
-          }
-          
-          // If user has children and is on onboarding page, redirect to dashboard
-          if (hasChildren && isOnOnboardingPage) {
-            router.push('/dashboard');
-          }
-        }, 100);
-      } catch (error) {
-        console.error('Error checking onboarding status:', error);
+    try {
+      const response = await fetch('/api/user/has-children', {
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-    };
 
-    // Add a small delay before checking to allow user initialization to complete
-    setTimeout(() => {
+      const { hasChildren } = await response.json();
+      
+      setState(prev => ({
+        ...prev,
+        isInitialized: true,
+        hasChildren,
+        isLoading: false,
+        error: null,
+        retryCount: 0
+      }));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error checking onboarding status:', errorMessage);
+      
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+        retryCount: prev.retryCount + 1
+      }));
+    }
+  }, [isLoaded, user]);
+
+  // Initialize user data when user is loaded
+  useEffect(() => {
+    if (isLoaded && user && !state.isInitialized && !state.isLoading) {
       checkOnboardingStatus();
-    }, 200);
-  }, [user, isLoaded, router, pathname]);
+    }
+  }, [isLoaded, user, state.isInitialized, state.isLoading, checkOnboardingStatus]);
+
+  // Retry logic with exponential backoff
+  useEffect(() => {
+    if (state.error && state.retryCount < 3) {
+      const delay = getRetryDelay(state.retryCount);
+      const timeoutId = setTimeout(() => {
+        checkOnboardingStatus();
+      }, delay);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [state.error, state.retryCount, getRetryDelay, checkOnboardingStatus]);
+
+  // Handle redirects once data is loaded
+  useEffect(() => {
+    if (!state.isInitialized || state.hasChildren === null) return;
+
+    const isOnOnboardingPage = pathname === '/onboarding';
+    const isOnInvitationPage = pathname.startsWith('/invite/');
+
+    // Skip redirect logic if user is on an invitation page
+    if (isOnInvitationPage) {
+      return;
+    }
+
+    // Perform redirects based on user state
+    if (!state.hasChildren && !isOnOnboardingPage) {
+      router.push('/onboarding');
+    } else if (state.hasChildren && isOnOnboardingPage) {
+      router.push('/dashboard');
+    }
+  }, [state.isInitialized, state.hasChildren, pathname, router]);
 
   return null; // This component only handles redirects
 }
