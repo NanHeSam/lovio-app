@@ -20,22 +20,34 @@ export default function OnboardingRedirect() {
         const { hasChildren } = await response.json();
         
         const isOnOnboardingPage = pathname === '/onboarding';
+        const isOnInvitationPage = pathname.startsWith('/invite/');
 
-        // If user has no children and not on onboarding page, redirect to onboarding
-        if (!hasChildren && !isOnOnboardingPage) {
-          router.push('/onboarding');
+        // Skip redirect logic if user is on an invitation page
+        if (isOnInvitationPage) {
+          return;
         }
-        
-        // If user has children and is on onboarding page, redirect to dashboard
-        if (hasChildren && isOnOnboardingPage) {
-          router.push('/dashboard');
-        }
+
+        // Add a small delay to avoid racing conditions with user initialization
+        setTimeout(() => {
+          // If user has no children and not on onboarding page, redirect to onboarding
+          if (!hasChildren && !isOnOnboardingPage) {
+            router.push('/onboarding');
+          }
+          
+          // If user has children and is on onboarding page, redirect to dashboard
+          if (hasChildren && isOnOnboardingPage) {
+            router.push('/dashboard');
+          }
+        }, 100);
       } catch (error) {
         console.error('Error checking onboarding status:', error);
       }
     };
 
-    checkOnboardingStatus();
+    // Add a small delay before checking to allow user initialization to complete
+    setTimeout(() => {
+      checkOnboardingStatus();
+    }, 200);
   }, [user, isLoaded, router, pathname]);
 
   return null; // This component only handles redirects
