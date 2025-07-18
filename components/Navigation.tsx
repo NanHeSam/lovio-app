@@ -36,6 +36,14 @@ export default function Navigation() {
       label: 'Profile',
       icon: User,
     },
+    // Development/testing pages
+    ...(process.env.NODE_ENV === 'development' ? [
+      {
+        href: '/dashboard/test-email',
+        label: 'Test Email',
+        icon: Mail,
+      },
+    ] : []),
   ];
 
   const toggleMobileMenu = () => {

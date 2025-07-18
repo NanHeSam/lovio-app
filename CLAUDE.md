@@ -147,6 +147,9 @@ docs/lessons/       # Development insights and troubleshooting
   - `LANGCHAIN_PROJECT=lovio-app` - Project name for trace organization
   - `CLERK_SECRET_KEY` - Clerk secret key for server-side operations
   - `CLERK_WEBHOOK_SECRET` - Clerk webhook secret for validating webhooks
+  - `RESEND_API_KEY` - Resend API key for email delivery
+  - `RESEND_FROM_EMAIL` - From email address (verified domain)
+  - `NEXT_PUBLIC_BASE_URL` - Application base URL for invitation links
 
 ## Authentication & Onboarding
 
@@ -490,9 +493,106 @@ The invitation system includes comprehensive testing:
 
 ### Future Enhancements
 
-1. **Email Integration**: Automatic email sending with invitation links
-2. **Bulk Invitations**: Invite multiple users at once
-3. **Template Messages**: Pre-defined invitation messages
-4. **Real-time Notifications**: Live updates for invitation status changes
-5. **Advanced Permissions**: More granular role-based permissions
-6. **Invitation Analytics**: Track invitation usage and acceptance rates
+1. **Bulk Invitations**: Invite multiple users at once
+2. **Template Messages**: Pre-defined invitation messages
+3. **Real-time Notifications**: Live updates for invitation status changes
+4. **Advanced Permissions**: More granular role-based permissions
+5. **Invitation Analytics**: Track invitation usage and acceptance rates
+6. **Email Templates**: Multiple email templates for different contexts
+
+## Email System
+
+### Overview
+
+The email system uses **Resend** and **React Email** to send beautiful, responsive invitation emails. All emails are built with React components and rendered server-side for optimal compatibility.
+
+### Architecture
+
+#### Email Service (`lib/email.ts`)
+- **Resend Integration**: Configured with API key and sender email
+- **Template Rendering**: React Email components rendered to HTML
+- **Error Handling**: Comprehensive error handling and logging
+- **Development Support**: Test email functionality
+
+#### Email Templates (`emails/`)
+- **InvitationEmail**: Professional invitation template with branding
+- **Responsive Design**: Works across all email clients
+- **Personalization**: Dynamic content based on invitation details
+- **Security**: Secure token-based invitation links
+
+### Components
+
+#### Email Template Features
+- **Branding**: Lovio logo and consistent design
+- **Personalization**: Inviter name, child name, role, and custom messages
+- **Call-to-Action**: Clear "Accept Invitation" button
+- **Feature Benefits**: List of what the invitee can do
+- **Security Information**: Expiration date and backup link
+- **Mobile Responsive**: Optimized for all devices
+
+#### API Integration
+- **Automatic Sending**: Emails sent during invitation creation
+- **Fallback Handling**: Invitation works even if email fails
+- **Status Tracking**: Email delivery status in API responses
+- **Development Mode**: Test email endpoint for debugging
+
+### Configuration
+
+#### Environment Variables
+```bash
+RESEND_API_KEY=re_your_api_key_here
+RESEND_FROM_EMAIL=Lovio <noreply@yourdomain.com>
+NEXT_PUBLIC_BASE_URL=https://your-app-domain.com
+```
+
+#### Development Setup
+1. Get Resend API key from [resend.com](https://resend.com)
+2. Add environment variables to `.env.local`
+3. For development, use `onboarding@resend.dev` as sender
+4. Test using `/dashboard/test-email` page
+
+#### Production Setup
+1. Verify domain with Resend
+2. Update `RESEND_FROM_EMAIL` to use verified domain
+3. Set production `NEXT_PUBLIC_BASE_URL`
+4. Monitor delivery in Resend dashboard
+
+### Usage
+
+#### Sending Invitation Emails
+```typescript
+const emailResult = await sendInvitationEmail({
+  invitation: invitationWithDetails,
+  invitationUrl: 'https://app.com/invite/token'
+});
+```
+
+#### Test Email Sending
+```typescript
+const emailResult = await sendTestEmail('test@example.com');
+```
+
+### Email Client Compatibility
+
+Tested and optimized for:
+- Gmail (Web, iOS, Android)
+- Outlook (Web, Desktop, Mobile)
+- Apple Mail (macOS, iOS)
+- Yahoo Mail, Thunderbird, and more
+
+### Monitoring
+
+Resend provides:
+- Delivery status tracking
+- Open and click analytics
+- Bounce and complaint handling
+- Detailed logs and metrics
+- Webhook integration for status updates
+
+### Security
+
+- API keys stored securely in environment variables
+- Email content sanitized to prevent XSS
+- Secure token-based invitation links
+- Rate limiting to prevent abuse
+- Domain verification for sender reputation
