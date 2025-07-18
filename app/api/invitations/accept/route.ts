@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { acceptInvitation } from '@/lib/db/queries';
 
 export async function POST(request: NextRequest) {
@@ -19,10 +19,15 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Get user email from Clerk
+    const clerkUser = await currentUser();
+    const userEmail = clerkUser?.emailAddresses[0]?.emailAddress;
+
     // Accept the invitation
     const result = await acceptInvitation({
       token,
       acceptingUserId: userId,
+      userEmail,
     });
 
     if (result.success) {

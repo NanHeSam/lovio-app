@@ -1,24 +1,25 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { getInvitationByToken, acceptInvitation } from '@/lib/db/queries';
-import { InvitationAcceptanceForm } from './components/InvitationAcceptanceForm';
+import { InvitationPageWrapper } from './components/InvitationPageWrapper';
 
 interface InvitePageProps {
-  params: {
+  params: Promise<{
     token: string;
-  };
+  }>;
 }
 
 export default async function InvitePage({ params }: InvitePageProps) {
   const { userId } = await auth();
+  const { token } = await params;
   
   if (!userId) {
     // Redirect to sign in with the invitation token as a parameter
-    redirect(`/sign-in?invitation=${params.token}`);
+    redirect(`/sign-in?invitation=${token}`);
   }
 
   // Get the invitation details
-  const invitation = await getInvitationByToken(params.token);
+  const invitation = await getInvitationByToken(token);
 
   if (!invitation) {
     return (
@@ -90,7 +91,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8">
-        <InvitationAcceptanceForm
+        <InvitationPageWrapper
           invitation={invitation}
           userId={userId}
         />

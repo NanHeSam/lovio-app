@@ -31,7 +31,6 @@ export function InvitationAcceptanceForm({ invitation, userId }: InvitationAccep
         },
         body: JSON.stringify({
           token: invitation.token,
-          userId,
         }),
       });
 
