@@ -80,7 +80,7 @@ export async function GET(
       createdByUser: result.createdByUser,
       aiInteraction: result.aiInteraction?.id ? result.aiInteraction : null,
       langsmithTraceUrl: result.aiInteraction?.id 
-        ? `https://smith.langchain.com/o/1f9974f3-eaef-438e-8369-60b3ead4a04f/p/lovio-app/r/${result.aiInteraction.id}`
+        ? `https://smith.langchain.com/o/1f9974f3-eaef-438e-8369-60b3ead4a04f/projects/p/809e485d-c4ed-4cdd-98ed-a86f0b88cb77/r/${result.aiInteraction.id}`
         : null
     });
 
