@@ -49,9 +49,10 @@ Lovio is a modern family management application built with Next.js 15 and TypeSc
 The database follows a sophisticated user-child relationship model with an activities tracking system optimized for AI integration:
 
 #### Core Tables
-- `users` - User accounts with timezone and preference support
+- `users` - User accounts with timezone, preference support, and email for invitations
 - `children` - Child profiles with computed age tracking
 - `user_children` - Junction table with role-based permissions (parent, guardian, caregiver)
+- `invitations` - Secure token-based invitation system for caregiver access
 
 #### Activities System (MCP-Optimized)
 - `activities` - Core activity tracking (sleep, feed, diaper, medicine, weight, mood) with:
@@ -67,8 +68,12 @@ The database follows a sophisticated user-child relationship model with an activ
 ```
 app/                 # Next.js App Router pages
   dashboard/         # Main dashboard interface with activity cards
+    invitations/     # Invitation management pages
   activities/        # Activity tracking and management pages
+  invite/            # Invitation acceptance pages
+    [token]/         # Dynamic token-based invitation acceptance
   api/               # API routes (activities, AI chat, dashboard data)
+    invitations/     # Invitation API endpoints (accept, reject, cancel)
 components/          # React components
   dashboard/         # Dashboard-specific components
     ActivityDetailModal.tsx     # Modal for viewing activity details
@@ -142,6 +147,9 @@ docs/lessons/       # Development insights and troubleshooting
   - `LANGCHAIN_PROJECT=lovio-app` - Project name for trace organization
   - `CLERK_SECRET_KEY` - Clerk secret key for server-side operations
   - `CLERK_WEBHOOK_SECRET` - Clerk webhook secret for validating webhooks
+  - `RESEND_API_KEY` - Resend API key for email delivery
+  - `RESEND_FROM_EMAIL` - From email address (verified domain)
+  - `NEXT_PUBLIC_BASE_URL` - Application base URL for invitation links
 
 ## Authentication & Onboarding
 
@@ -361,3 +369,230 @@ When modifying AI agent behavior:
 3. **Fix specific scenarios**: `npm run test:agent run <scenario_name>`
 4. **Add new test cases**: Update `tests/chat-scenarios.yml`
 5. **Validate 3-step protocol**: Ensure checkActiveSessions → parseUserTime → action flow
+
+## Invitation System
+
+### Overview
+
+The invitation system allows users to invite other caregivers (parents, guardians, or caregivers) to help track their children's activities. The system uses secure token-based invitations with email validation and expiration handling.
+
+### Database Schema
+
+#### Invitations Table
+- `id` (UUID, primary key)
+- `token` (64-char hex, unique secure token)
+- `inviter_user_id` (foreign key to users)
+- `child_id` (foreign key to children)
+- `invitee_email` (email address of invitee)
+- `invitee_role` (parent, guardian, caregiver)
+- `personal_message` (optional message)
+- `status` (pending, accepted, rejected, expired)
+- `accepted_by` (foreign key to users, nullable)
+- `created_at`, `expires_at`, `accepted_at`
+
+#### Users Table Updates
+- `email` (varchar, unique) - Added for invitation system
+
+### Core Functions
+
+#### Database Operations (`lib/db/queries.ts`)
+- `createInvitation()` - Creates secure token-based invitations
+- `getInvitationByToken()` - Retrieves invitation details by token
+- `acceptInvitation()` - Handles invitation acceptance with validation
+- `getUserInvitations()` - Gets sent/received invitations for users
+- `cancelInvitation()` - Cancels pending invitations
+- `cleanupExpiredInvitations()` - Maintains data integrity
+
+#### API Endpoints
+- `POST /api/children/invite` - Create invitations
+- `POST /api/invitations/accept` - Accept invitations
+- `POST /api/invitations/reject` - Reject invitations
+- `POST /api/invitations/cancel` - Cancel pending invitations
+
+### User Interface
+
+#### Invitation Management (`/dashboard/invitations`)
+- **Sent Tab**: View and manage sent invitations
+- **Received Tab**: View and accept/reject received invitations
+- **Status Tracking**: Visual indicators for pending, accepted, rejected, expired
+- **Copy Link**: Easy sharing of invitation URLs
+- **Cancel**: Remove pending invitations
+
+#### Invitation Acceptance (`/invite/[token]`)
+- **Secure Access**: Token-based invitation viewing
+- **User-Friendly**: Clear invitation details and personal messages
+- **Validation**: Email matching and expiration checking
+- **Role Display**: Clear indication of assigned role
+
+### Security Features
+
+1. **Token-Based Security**: 64-character hex tokens for secure access
+2. **Email Validation**: Invitations tied to specific email addresses
+3. **Expiration Handling**: Automatic expiration after 7 days
+4. **Permission Validation**: Users can only invite for children they have access to
+5. **Duplicate Prevention**: Prevents duplicate invitations and existing access
+6. **Role-Based Access**: Granular permissions (parent, guardian, caregiver)
+
+### Integration Points
+
+#### Authentication Flow
+- **Sign-in with Invitation**: URL parameter handling for invitation tokens
+- **Redirect Logic**: Seamless flow from invitation to sign-in to acceptance
+- **Onboarding Integration**: Works with existing user onboarding system
+
+#### Navigation
+- **Main Navigation**: Invitations link added to dashboard navigation
+- **Mobile Support**: Responsive design for all screen sizes
+- **Notification System**: Toast notifications for user feedback
+
+### Usage Workflow
+
+1. **Send Invitation**: User creates invitation with email and role
+2. **Generate URL**: System creates secure token-based URL
+3. **Share Link**: Invitation URL shared with invitee
+4. **Accept Invitation**: Invitee visits URL, signs in if needed, accepts
+5. **Access Granted**: User-child relationship created, full access granted
+6. **Manage Invitations**: Both parties can view invitation status
+
+### Common Operations
+
+#### Creating Invitations
+```javascript
+const invitation = await createInvitation({
+  inviterUserId: userId,
+  childId: childId,
+  inviteeEmail: email,
+  inviteeRole: 'caregiver',
+  personalMessage: 'Please help track Emma\'s activities',
+  expiresInDays: 7
+});
+```
+
+#### Accepting Invitations
+```javascript
+const result = await acceptInvitation({
+  token: invitationToken,
+  acceptingUserId: userId
+});
+```
+
+#### Error Handling
+- Invalid tokens return appropriate error messages
+- Expired invitations are automatically marked as expired
+- Duplicate invitations are prevented with clear user feedback
+- Email mismatches are handled gracefully
+
+### Testing
+
+The invitation system includes comprehensive testing:
+- Database operations with proper cleanup
+- API endpoint validation
+- UI component testing
+- Error scenario handling
+- Security validation
+
+### Future Enhancements
+
+1. **Bulk Invitations**: Invite multiple users at once
+2. **Template Messages**: Pre-defined invitation messages
+3. **Real-time Notifications**: Live updates for invitation status changes
+4. **Advanced Permissions**: More granular role-based permissions
+5. **Invitation Analytics**: Track invitation usage and acceptance rates
+6. **Email Templates**: Multiple email templates for different contexts
+
+## Email System
+
+### Overview
+
+The email system uses **Resend** and **React Email** to send beautiful, responsive invitation emails. All emails are built with React components and rendered server-side for optimal compatibility.
+
+### Architecture
+
+#### Email Service (`lib/email.ts`)
+- **Resend Integration**: Configured with API key and sender email
+- **Template Rendering**: React Email components rendered to HTML
+- **Error Handling**: Comprehensive error handling and logging
+- **Development Support**: Test email functionality
+
+#### Email Templates (`emails/`)
+- **InvitationEmail**: Professional invitation template with branding
+- **Responsive Design**: Works across all email clients
+- **Personalization**: Dynamic content based on invitation details
+- **Security**: Secure token-based invitation links
+
+### Components
+
+#### Email Template Features
+- **Branding**: Lovio logo and consistent design
+- **Personalization**: Inviter name, child name, role, and custom messages
+- **Call-to-Action**: Clear "Accept Invitation" button
+- **Feature Benefits**: List of what the invitee can do
+- **Security Information**: Expiration date and backup link
+- **Mobile Responsive**: Optimized for all devices
+
+#### API Integration
+- **Automatic Sending**: Emails sent during invitation creation
+- **Fallback Handling**: Invitation works even if email fails
+- **Status Tracking**: Email delivery status in API responses
+- **Development Mode**: Test email endpoint for debugging
+
+### Configuration
+
+#### Environment Variables
+```bash
+RESEND_API_KEY=re_your_api_key_here
+RESEND_FROM_EMAIL=Lovio <noreply@yourdomain.com>
+NEXT_PUBLIC_BASE_URL=https://your-app-domain.com
+```
+
+#### Development Setup
+1. Get Resend API key from [resend.com](https://resend.com)
+2. Add environment variables to `.env.local`
+3. For development, use `onboarding@resend.dev` as sender
+4. Test using `/dashboard/test-email` page
+
+#### Production Setup
+1. Verify domain with Resend
+2. Update `RESEND_FROM_EMAIL` to use verified domain
+3. Set production `NEXT_PUBLIC_BASE_URL`
+4. Monitor delivery in Resend dashboard
+
+### Usage
+
+#### Sending Invitation Emails
+```typescript
+const emailResult = await sendInvitationEmail({
+  invitation: invitationWithDetails,
+  invitationUrl: 'https://app.com/invite/token'
+});
+```
+
+#### Test Email Sending
+```typescript
+const emailResult = await sendTestEmail('test@example.com');
+```
+
+### Email Client Compatibility
+
+Tested and optimized for:
+- Gmail (Web, iOS, Android)
+- Outlook (Web, Desktop, Mobile)
+- Apple Mail (macOS, iOS)
+- Yahoo Mail, Thunderbird, and more
+
+### Monitoring
+
+Resend provides:
+- Delivery status tracking
+- Open and click analytics
+- Bounce and complaint handling
+- Detailed logs and metrics
+- Webhook integration for status updates
+
+### Security
+
+- API keys stored securely in environment variables
+- Email content sanitized to prevent XSS
+- Secure token-based invitation links
+- Rate limiting to prevent abuse
+- Domain verification for sender reputation

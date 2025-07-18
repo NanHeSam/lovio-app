@@ -1,5 +1,5 @@
 import { InferSelectModel, InferInsertModel } from 'drizzle-orm';
-import { users, children, userChildren, activities, aiInteractions } from './schema';
+import { users, children, userChildren, activities, aiInteractions, invitations } from './schema';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -29,6 +29,11 @@ export type ActivityUpdate = Partial<Omit<NewActivity, 'id' | 'createdAt'>>;
 export type AiInteraction = InferSelectModel<typeof aiInteractions>;
 export type NewAiInteraction = InferInsertModel<typeof aiInteractions>;
 
+// Invitation types
+export type Invitation = InferSelectModel<typeof invitations>;
+export type NewInvitation = InferInsertModel<typeof invitations>;
+export type InvitationUpdate = Partial<Omit<NewInvitation, 'id' | 'createdAt' | 'token'>>;
+
 // ============================================================================
 // ENUM TYPES
 // ============================================================================
@@ -36,6 +41,20 @@ export type NewAiInteraction = InferInsertModel<typeof aiInteractions>;
 export type Gender = 'male' | 'female';
 export type UserRole = 'mom' | 'dad' | 'nanny' | 'extended-family' | 'other';
 export type ActivityType = 'sleep' | 'feed' | 'diaper';
+export type InvitationStatus = 'pending' | 'accepted' | 'rejected' | 'expired';
+/**
+ * Validates if a string is a valid UserRole
+ */
+export function isValidUserRole(role: string): role is UserRole {
+  return ['mom', 'dad', 'nanny', 'extended-family', 'other'].includes(role);
+}
+
+/**
+ * Gets all valid user roles
+ */
+export function getUserRoles(): readonly UserRole[] {
+  return ['mom', 'dad', 'nanny', 'extended-family', 'other'] as const;
+}
 
 export interface UserPermissions {
   read: boolean;
@@ -151,4 +170,10 @@ export interface RecentActivity {
   endTime?: Date | null;
   details: ActivityDetails | null;
   ago: string; // "2 hours ago"
+}
+
+export interface InvitationWithDetails extends Invitation {
+  inviter: User;
+  child: Child;
+  accepter?: User;
 }

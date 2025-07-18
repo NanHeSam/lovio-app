@@ -66,20 +66,24 @@ export async function POST(req: NextRequest) {
         break;
 
       case 'user.updated':
-        const updatedFullName = `${evt.data.first_name || ''} ${evt.data.last_name || ''}`.trim();
-        
-        // Update existing user (don't regenerate API key)
-        await db
-          .update(users)
-          .set({
-            fullName: updatedFullName || 'Unknown User',
-            avatarUrl: evt.data.image_url || null,
-            updatedAt: new Date(),
-            lastActiveAt: new Date(),
-          })
-          .where(eq(users.id, id));
+        {
+          const updatedFullName = `${evt.data.first_name || ''} ${evt.data.last_name || ''}`.trim();
+          const updatedEmail = evt.data.email_addresses[0]?.email_address || null;
+          
+          // Update existing user (don't regenerate API key)
+          await db
+            .update(users)
+            .set({
+              fullName: updatedFullName || 'Unknown User',
+              email: updatedEmail,
+              avatarUrl: evt.data.image_url || null,
+              updatedAt: new Date(),
+              lastActiveAt: new Date(),
+            })
+            .where(eq(users.id, id));
 
-        console.log(`User updated: ${id}`);
+          console.log(`User updated: ${id}`);
+        }
         break;
 
       case 'user.deleted':

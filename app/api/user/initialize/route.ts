@@ -33,11 +33,13 @@ export async function POST() {
     }
 
     const fullName = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim();
+    const email = clerkUser.emailAddresses[0]?.emailAddress || null;
     
     // Create user in database
     const userData = {
       id: userId,
       fullName: fullName || 'Unknown User',
+      email: email,
       avatarUrl: clerkUser.imageUrl || null,
       createdAt: new Date(),
       updatedAt: new Date(),

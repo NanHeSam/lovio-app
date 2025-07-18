@@ -6,6 +6,7 @@ import {
   SignedOut,
 } from '@clerk/nextjs'
 import { ToastProvider } from '@/components/ui/toast';
+import { Toaster } from 'sonner';
 import Navigation from '@/components/Navigation';
 import OnboardingRedirect from '@/components/OnboardingRedirect';
 import QueryProvider from '@/components/providers/QueryProvider';
@@ -39,6 +40,7 @@ export default function RootLayout({
         >
           <QueryProvider>
             <ToastProvider>
+              <Toaster />
               <SignedOut>
                 {children}
               </SignedOut>

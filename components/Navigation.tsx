@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
-import { Home, Activity, Key, Menu, X } from 'lucide-react';
+import { Home, Activity, Key, User, Menu, X, Mail } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Navigation() {
@@ -22,10 +22,28 @@ export default function Navigation() {
       icon: Activity,
     },
     {
+      href: '/dashboard/invitations',
+      label: 'Invitations',
+      icon: Mail,
+    },
+    {
       href: '/dashboard/api-keys',
       label: 'iOS Shortcuts',
       icon: Key,
     },
+    {
+      href: '/profile',
+      label: 'Profile',
+      icon: User,
+    },
+    // Development/testing pages
+    ...(process.env.NODE_ENV === 'development' ? [
+      {
+        href: '/dashboard/test-email',
+        label: 'Test Email',
+        icon: Mail,
+      },
+    ] : []),
   ];
 
   const toggleMobileMenu = () => {

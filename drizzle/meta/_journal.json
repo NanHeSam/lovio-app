@@ -43,6 +43,13 @@
       "when": 1752815119959,
       "tag": "0005_add_user_feedback_constraint",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1752821376520,
+      "tag": "0006_add_invitations_system",
+      "breakpoints": true
     }
   ]
 }
