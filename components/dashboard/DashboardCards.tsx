@@ -8,6 +8,7 @@ import DiaperCard from './DiaperCard';
 import ActivityDetailModal from './ActivityDetailModal';
 import EditActivityModal from '../activities/EditActivityModal';
 import { useToast } from '@/components/ui/toast';
+import { useQueryInvalidation } from '@/lib/hooks/useQueryInvalidation';
 import type { RecentActivity, ActivityType } from '@/lib/db/types';
 
 interface DashboardCardsProps {
@@ -17,6 +18,7 @@ interface DashboardCardsProps {
 export default function DashboardCards({ childId }: DashboardCardsProps) {
   const { data, loading, error, refetch } = useDashboard(childId);
   const { showToast } = useToast();
+  const { invalidateDashboard } = useQueryInvalidation();
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     activityType: 'sleep' | 'feed' | 'diaper' | null;
@@ -102,7 +104,7 @@ export default function DashboardCards({ childId }: DashboardCardsProps) {
       }
 
       showToast('Activity deleted successfully', 'success');
-      refetch(); // Refresh dashboard data
+      invalidateDashboard(childId); // Invalidate and refresh dashboard data
       setDeleteConfirmation({ show: false, activity: null });
     } catch (error) {
       console.error('Error deleting activity:', error);
@@ -131,8 +133,8 @@ export default function DashboardCards({ childId }: DashboardCardsProps) {
         throw new Error('Failed to stop session');
       }
 
-      // Refresh the dashboard data
-      refetch();
+      // Invalidate and refresh the dashboard data
+      invalidateDashboard(childId);
       
       showToast("Activity session has been ended successfully.", 'success');
     } catch (error) {
@@ -227,7 +229,7 @@ export default function DashboardCards({ childId }: DashboardCardsProps) {
           activity={editModal.activity}
           childId={childId}
           onSave={() => {
-            refetch();
+            invalidateDashboard(childId);
             closeEditModal();
             showToast('Activity updated successfully', 'success');
           }}
