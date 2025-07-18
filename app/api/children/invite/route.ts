@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createInvitation } from '@/lib/db/queries';
-import { InvitationRole } from '@/lib/db/types';
+import { UserRole, isValidUserRole, getUserRoles } from '@/lib/db/types';
 import { sendInvitationEmail } from '@/lib/email';
 import { validateAndGetBaseUrl } from '@/lib/utils/url';
 
@@ -31,10 +31,11 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Validate role
-    if (!['parent', 'guardian', 'caregiver'].includes(role)) {
+    // Validate role using type-safe validation
+    if (!isValidUserRole(role)) {
+      const validRoles = getUserRoles().join(', ');
       return NextResponse.json({ 
-        error: 'Invalid role. Must be parent, guardian, or caregiver' 
+        error: `Invalid role. Must be one of: ${validRoles}` 
       }, { status: 400 });
     }
 
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
       inviterUserId: userId,
       childId,
       inviteeEmail: email,
-      inviteeRole: role as InvitationRole,
+      inviteeRole: role as UserRole,
       personalMessage: message,
       expiresInDays: 7, // Invitations expire in 7 days
     });

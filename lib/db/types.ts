@@ -42,7 +42,19 @@ export type Gender = 'male' | 'female';
 export type UserRole = 'mom' | 'dad' | 'nanny' | 'extended-family' | 'other';
 export type ActivityType = 'sleep' | 'feed' | 'diaper';
 export type InvitationStatus = 'pending' | 'accepted' | 'rejected' | 'expired';
-export type InvitationRole = 'parent' | 'guardian' | 'caregiver';
+/**
+ * Validates if a string is a valid UserRole
+ */
+export function isValidUserRole(role: string): role is UserRole {
+  return ['mom', 'dad', 'nanny', 'extended-family', 'other'].includes(role);
+}
+
+/**
+ * Gets all valid user roles
+ */
+export function getUserRoles(): readonly UserRole[] {
+  return ['mom', 'dad', 'nanny', 'extended-family', 'other'] as const;
+}
 
 export interface UserPermissions {
   read: boolean;

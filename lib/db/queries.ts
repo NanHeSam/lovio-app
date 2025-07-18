@@ -12,7 +12,7 @@ import type {
   ActivityWithChild,
   InvitationWithDetails,
   InvitationStatus,
-  InvitationRole
+  UserRole
 } from './types';
 
 // ============================================================================
@@ -672,7 +672,7 @@ export async function createInvitation(params: {
   inviterUserId: string;
   childId: string;
   inviteeEmail: string;
-  inviteeRole: InvitationRole;
+  inviteeRole: UserRole;
   personalMessage?: string;
   expiresInDays?: number;
 }): Promise<InvitationWithDetails> {
