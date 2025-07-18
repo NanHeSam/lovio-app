@@ -1,5 +1,5 @@
 import { db } from './index';
-import { activities, children, users, userChildren, aiInteractions } from './schema';
+import { activities, children, users, userChildren, aiInteractions, invitations } from './schema';
 import { eq, and, isNull, desc, gte, lte, inArray } from 'drizzle-orm';
 import { formatTimeAgo } from '../utils/datetime';
 import { buildLangsmithTraceUrl } from '../utils';
@@ -9,7 +9,10 @@ import type {
   ActiveSession,
   DailySummary,
   RecentActivity,
-  ActivityWithChild
+  ActivityWithChild,
+  InvitationWithDetails,
+  InvitationStatus,
+  InvitationRole
 } from './types';
 
 // ============================================================================
@@ -649,4 +652,360 @@ export async function getAIInteractionsWithTraceInfo(params: {
     langsmithTraceId: interaction.id, // AI interaction ID = LangSmith run ID
     langsmithTraceUrl: buildLangsmithTraceUrl(interaction.id),
   }));
+}
+
+// ============================================================================
+// INVITATION MANAGEMENT
+// ============================================================================
+
+/**
+ * Generate a secure invitation token
+ */
+function generateInvitationToken(): string {
+  return require('crypto').randomBytes(32).toString('hex');
+}
+
+/**
+ * Create a new invitation
+ */
+export async function createInvitation(params: {
+  inviterUserId: string;
+  childId: string;
+  inviteeEmail: string;
+  inviteeRole: InvitationRole;
+  personalMessage?: string;
+  expiresInDays?: number;
+}): Promise<InvitationWithDetails> {
+  const { 
+    inviterUserId, 
+    childId, 
+    inviteeEmail, 
+    inviteeRole, 
+    personalMessage, 
+    expiresInDays = 7 
+  } = params;
+
+  // Check if user has permission to invite for this child
+  const hasAccess = await validateChildAccess(inviterUserId, childId);
+  if (!hasAccess) {
+    throw new Error('Access denied: You do not have permission to invite users for this child');
+  }
+
+  // Check if there's already a pending invitation for this email/child combination
+  const existingInvitation = await db
+    .select()
+    .from(invitations)
+    .where(
+      and(
+        eq(invitations.childId, childId),
+        eq(invitations.inviteeEmail, inviteeEmail.toLowerCase()),
+        eq(invitations.status, 'pending')
+      )
+    )
+    .limit(1);
+
+  if (existingInvitation.length > 0) {
+    throw new Error('There is already a pending invitation for this email address');
+  }
+
+  // Check if user already has access to this child
+  const existingUser = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, inviteeEmail.toLowerCase()))
+    .limit(1);
+
+  if (existingUser.length > 0) {
+    const existingAccess = await validateChildAccess(existingUser[0].id, childId);
+    if (existingAccess) {
+      throw new Error('This user already has access to this child');
+    }
+  }
+
+  // Calculate expiration date
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+
+  // Create the invitation
+  const [invitation] = await db
+    .insert(invitations)
+    .values({
+      token: generateInvitationToken(),
+      inviterUserId,
+      childId,
+      inviteeEmail: inviteeEmail.toLowerCase(),
+      inviteeRole,
+      personalMessage,
+      expiresAt,
+    })
+    .returning();
+
+  // Return invitation with details
+  return getInvitationWithDetails(invitation.id);
+}
+
+/**
+ * Get invitation with full details
+ */
+export async function getInvitationWithDetails(invitationId: string): Promise<InvitationWithDetails> {
+  const [result] = await db
+    .select({
+      invitation: invitations,
+      inviter: users,
+      child: children,
+      accepter: {
+        id: users.id,
+        fullName: users.fullName,
+        email: users.email,
+        avatarUrl: users.avatarUrl,
+      }
+    })
+    .from(invitations)
+    .innerJoin(users, eq(invitations.inviterUserId, users.id))
+    .innerJoin(children, eq(invitations.childId, children.id))
+    .leftJoin(
+      { accepterUser: users }, 
+      eq(invitations.acceptedBy, users.id)
+    )
+    .where(eq(invitations.id, invitationId))
+    .limit(1);
+
+  if (!result) {
+    throw new Error('Invitation not found');
+  }
+
+  return {
+    ...result.invitation,
+    inviter: result.inviter,
+    child: result.child,
+    accepter: result.accepter || undefined,
+  };
+}
+
+/**
+ * Get invitation by token
+ */
+export async function getInvitationByToken(token: string): Promise<InvitationWithDetails | null> {
+  const [result] = await db
+    .select({
+      invitation: invitations,
+      inviter: users,
+      child: children,
+    })
+    .from(invitations)
+    .innerJoin(users, eq(invitations.inviterUserId, users.id))
+    .innerJoin(children, eq(invitations.childId, children.id))
+    .where(eq(invitations.token, token))
+    .limit(1);
+
+  if (!result) {
+    return null;
+  }
+
+  return {
+    ...result.invitation,
+    inviter: result.inviter,
+    child: result.child,
+  };
+}
+
+/**
+ * Accept an invitation
+ */
+export async function acceptInvitation(params: {
+  token: string;
+  acceptingUserId: string;
+}): Promise<{ success: boolean; message: string }> {
+  const { token, acceptingUserId } = params;
+
+  // Get the invitation
+  const invitation = await getInvitationByToken(token);
+  if (!invitation) {
+    return { success: false, message: 'Invalid invitation token' };
+  }
+
+  // Check if invitation is still valid
+  if (invitation.status !== 'pending') {
+    return { success: false, message: 'This invitation has already been processed' };
+  }
+
+  if (new Date() > invitation.expiresAt) {
+    // Mark as expired
+    await db
+      .update(invitations)
+      .set({ status: 'expired' })
+      .where(eq(invitations.id, invitation.id));
+    
+    return { success: false, message: 'This invitation has expired' };
+  }
+
+  // Get the accepting user's email
+  const [acceptingUser] = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, acceptingUserId))
+    .limit(1);
+
+  if (!acceptingUser?.email) {
+    return { success: false, message: 'User email not found' };
+  }
+
+  // Check if the email matches the invitation
+  if (acceptingUser.email.toLowerCase() !== invitation.inviteeEmail.toLowerCase()) {
+    return { success: false, message: 'This invitation was sent to a different email address' };
+  }
+
+  // Check if user already has access
+  const existingAccess = await validateChildAccess(acceptingUserId, invitation.childId);
+  if (existingAccess) {
+    // Mark invitation as accepted anyway
+    await db
+      .update(invitations)
+      .set({ 
+        status: 'accepted',
+        acceptedBy: acceptingUserId,
+        acceptedAt: new Date()
+      })
+      .where(eq(invitations.id, invitation.id));
+    
+    return { success: true, message: 'You already have access to this child' };
+  }
+
+  // Create user-child relationship
+  await db
+    .insert(userChildren)
+    .values({
+      userId: acceptingUserId,
+      childId: invitation.childId,
+      role: invitation.inviteeRole,
+      permissions: { read: true, write: true, admin: false },
+    });
+
+  // Mark invitation as accepted
+  await db
+    .update(invitations)
+    .set({ 
+      status: 'accepted',
+      acceptedBy: acceptingUserId,
+      acceptedAt: new Date()
+    })
+    .where(eq(invitations.id, invitation.id));
+
+  return { success: true, message: 'Invitation accepted successfully!' };
+}
+
+/**
+ * Get invitations for a user (sent or received)
+ */
+export async function getUserInvitations(params: {
+  userId: string;
+  type?: 'sent' | 'received';
+  status?: InvitationStatus;
+}): Promise<InvitationWithDetails[]> {
+  const { userId, type, status } = params;
+
+  const whereConditions = [];
+  
+  if (type === 'sent') {
+    whereConditions.push(eq(invitations.inviterUserId, userId));
+  } else if (type === 'received') {
+    // Get user's email for received invitations
+    const [user] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    
+    if (!user?.email) {
+      return [];
+    }
+    
+    whereConditions.push(eq(invitations.inviteeEmail, user.email.toLowerCase()));
+  }
+  
+  if (status) {
+    whereConditions.push(eq(invitations.status, status));
+  }
+
+  const results = await db
+    .select({
+      invitation: invitations,
+      inviter: users,
+      child: children,
+    })
+    .from(invitations)
+    .innerJoin(users, eq(invitations.inviterUserId, users.id))
+    .innerJoin(children, eq(invitations.childId, children.id))
+    .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+    .orderBy(desc(invitations.createdAt));
+
+  return results.map(result => ({
+    ...result.invitation,
+    inviter: result.inviter,
+    child: result.child,
+  }));
+}
+
+/**
+ * Cancel/revoke an invitation
+ */
+export async function cancelInvitation(params: {
+  invitationId: string;
+  userId: string;
+}): Promise<{ success: boolean; message: string }> {
+  const { invitationId, userId } = params;
+
+  // Check if user has permission to cancel this invitation
+  const [invitation] = await db
+    .select({
+      inviterUserId: invitations.inviterUserId,
+      childId: invitations.childId,
+      status: invitations.status,
+    })
+    .from(invitations)
+    .where(eq(invitations.id, invitationId))
+    .limit(1);
+
+  if (!invitation) {
+    return { success: false, message: 'Invitation not found' };
+  }
+
+  if (invitation.inviterUserId !== userId) {
+    const hasAccess = await validateChildAccess(userId, invitation.childId);
+    if (!hasAccess) {
+      return { success: false, message: 'Access denied: You cannot cancel this invitation' };
+    }
+  }
+
+  if (invitation.status !== 'pending') {
+    return { success: false, message: 'Only pending invitations can be cancelled' };
+  }
+
+  // Mark invitation as rejected (cancelled)
+  await db
+    .update(invitations)
+    .set({ status: 'rejected' })
+    .where(eq(invitations.id, invitationId));
+
+  return { success: true, message: 'Invitation cancelled successfully' };
+}
+
+/**
+ * Clean up expired invitations
+ */
+export async function cleanupExpiredInvitations(): Promise<number> {
+  const now = new Date();
+  
+  const updatedInvitations = await db
+    .update(invitations)
+    .set({ status: 'expired' })
+    .where(
+      and(
+        eq(invitations.status, 'pending'),
+        lte(invitations.expiresAt, now)
+      )
+    )
+    .returning({ id: invitations.id });
+
+  return updatedInvitations.length;
 }

@@ -21,6 +21,7 @@ import type { UserPreferences, ChildMetadata, UserRole, Gender, ActivityType, Ac
 export const users = pgTable('users', {
   id: text('id').primaryKey(), // External auth service user ID (Clerk format)
   fullName: varchar('full_name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }).unique(), // User's email address
   timezone: varchar('timezone', { length: 50 }),
   avatarUrl: text('avatar_url'),
   preferences: jsonb('preferences').$type<UserPreferences>().default(sql`'{}'::jsonb`),
@@ -69,12 +70,15 @@ export const usersRelations = relations(users, ({ many }) => ({
   userChildren: many(userChildren),
   createdActivities: many(activities),
   aiInteractions: many(aiInteractions),
+  sentInvitations: many(invitations, { relationName: 'inviter' }),
+  acceptedInvitations: many(invitations, { relationName: 'accepter' }),
 }));
 
 export const childrenRelations = relations(children, ({ many }) => ({
   userChildren: many(userChildren),
   activities: many(activities),
   aiInteractions: many(aiInteractions),
+  invitations: many(invitations),
 }));
 
 export const userChildrenRelations = relations(userChildren, ({ one }) => ({
@@ -136,6 +140,31 @@ export const aiInteractions = pgTable('ai_interactions', {
   check('valid_user_feedback', sql`user_feedback IN ('thumbs_up', 'thumbs_down', 'none')`),
 ]);
 
+export const invitations = pgTable('invitations', {
+  id: uuid('id').primaryKey().default(sql`uuid_generate_v4()`),
+  token: varchar('token', { length: 64 }).unique().notNull(), // Secure invitation token
+  inviterUserId: text('inviter_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  childId: uuid('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
+  
+  // Invitation details
+  inviteeEmail: varchar('invitee_email', { length: 255 }).notNull(),
+  inviteeRole: varchar('invitee_role', { length: 20 }).notNull(), // 'parent', 'guardian', 'caregiver'
+  personalMessage: text('personal_message'), // Optional personal message
+  
+  // Status tracking
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // 'pending', 'accepted', 'rejected', 'expired'
+  acceptedBy: text('accepted_by').references(() => users.id, { onDelete: 'set null' }), // User who accepted
+  
+  // Timestamps
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+  
+}, () => [
+  check('valid_invitation_status', sql`status IN ('pending', 'accepted', 'rejected', 'expired')`),
+  check('valid_invitee_role', sql`invitee_role IN ('parent', 'guardian', 'caregiver')`),
+]);
+
 // ============================================================================
 // ACTIVITIES RELATIONS
 // ============================================================================
@@ -158,6 +187,23 @@ export const aiInteractionsRelations = relations(aiInteractions, ({ one }) => ({
   }),
   child: one(children, {
     fields: [aiInteractions.childId],
+    references: [children.id],
+  }),
+}));
+
+export const invitationsRelations = relations(invitations, ({ one }) => ({
+  inviter: one(users, {
+    fields: [invitations.inviterUserId],
+    references: [users.id],
+    relationName: 'inviter'
+  }),
+  accepter: one(users, {
+    fields: [invitations.acceptedBy],
+    references: [users.id],
+    relationName: 'accepter'
+  }),
+  child: one(children, {
+    fields: [invitations.childId],
     references: [children.id],
   }),
 }));

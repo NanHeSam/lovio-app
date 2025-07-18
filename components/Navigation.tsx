@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
-import { Home, Activity, Key, User, Menu, X } from 'lucide-react';
+import { Home, Activity, Key, User, Menu, X, Mail } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Navigation() {
@@ -20,6 +20,11 @@ export default function Navigation() {
       href: '/activities',
       label: 'Activities',
       icon: Activity,
+    },
+    {
+      href: '/dashboard/invitations',
+      label: 'Invitations',
+      icon: Mail,
     },
     {
       href: '/dashboard/api-keys',

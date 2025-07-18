@@ -48,7 +48,6 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
   const [userForm, setUserForm] = useState({
     fullName: user.fullName || '',
     timezone: user.timezone || '',
-    avatarUrl: user.avatarUrl || '',
   });
 
   // Children form state
@@ -58,7 +57,6 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
       name: uc.child.name,
       birthDate: uc.child.birthDate,
       gender: uc.child.gender || '',
-      avatarUrl: uc.child.avatarUrl || '',
       role: uc.role || '',
     }))
   );
@@ -116,7 +114,6 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
           name: childForm.name,
           birthDate: childForm.birthDate,
           gender: childForm.gender || null,
-          avatarUrl: childForm.avatarUrl || null,
         }),
       });
 
@@ -230,19 +227,6 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
             </select>
           </div>
 
-          <div>
-            <label htmlFor="avatarUrl" className="block text-sm font-medium text-gray-700 mb-1">
-              Avatar URL (Optional)
-            </label>
-            <input
-              type="url"
-              id="avatarUrl"
-              value={userForm.avatarUrl}
-              onChange={(e) => setUserForm({ ...userForm, avatarUrl: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="https://example.com/avatar.jpg"
-            />
-          </div>
 
           <button
             type="submit"
@@ -295,15 +279,7 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
                     Invite Parent
                   </button>
                   <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-xl">
-                    {childForm.avatarUrl ? (
-                      <img 
-                        src={childForm.avatarUrl} 
-                        alt={childForm.name} 
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      '👶'
-                    )}
+                    👶
                   </div>
                 </div>
               </div>
@@ -354,19 +330,6 @@ export default function ProfileForm({ user, userChildren }: ProfileFormProps) {
                   </select>
                 </div>
 
-                <div>
-                  <label htmlFor={`child-avatar-${childForm.id}`} className="block text-sm font-medium text-gray-700 mb-1">
-                    Avatar URL (Optional)
-                  </label>
-                  <input
-                    type="url"
-                    id={`child-avatar-${childForm.id}`}
-                    value={childForm.avatarUrl}
-                    onChange={(e) => updateChildForm(childForm.id, 'avatarUrl', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://example.com/child-avatar.jpg"
-                  />
-                </div>
 
                 <button
                   type="button"
