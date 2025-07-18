@@ -3,6 +3,7 @@
 import { Send, Loader2, Bot } from 'lucide-react';
 import { useChat } from 'ai/react';
 import { getLocalTimeWithTimezone } from '@/lib/utils/datetime';
+import { useQueryInvalidation } from '@/lib/hooks/useQueryInvalidation';
 
 interface PersistentAIInputProps {
   userId: string;
@@ -19,6 +20,7 @@ export default function PersistentAIInput({
   onQueryResponse,
   onNeedsClarification 
 }: PersistentAIInputProps) {
+  const { invalidateDashboard, invalidateActivities } = useQueryInvalidation();
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages, setInput } = useChat({
     api: '/api/ai',
     body: {
@@ -38,7 +40,9 @@ export default function PersistentAIInput({
       );
 
       if (hasSuccessfulMutation) {
-        // Successful mutation - show success toast
+        // Successful mutation - invalidate cache and show success toast
+        invalidateDashboard(childId);
+        invalidateActivities(childId);
         onSuccess?.(message.content);
         setMessages([]); // Clear messages
         setInput('');
