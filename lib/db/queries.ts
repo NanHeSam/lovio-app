@@ -98,10 +98,8 @@ export async function updateActivity(params: {
     }
   }
   
-  // Check if trying to end an already ended activity
-  if (endTime !== undefined && currentActivity.endTime) {
-    throw new Error('Activity session is already ended');
-  }
+  // Allow editing endTime for completed activities
+  // The original validation was too restrictive for editing use cases
   
   // Merge details if provided
   const mergedDetails = details ? { ...currentActivity.details, ...details } as ActivityDetails : currentActivity.details;

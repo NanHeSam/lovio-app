@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RecentActivity, ActiveSession, FeedDetails } from "@/lib/db/types";
 import LiveTimer from "./LiveTimer";
 import { Button } from "@/components/ui/button";
+import { Edit, Trash2 } from "lucide-react";
 import { getDurationMinutes, formatTimeAgo } from "@/lib/utils/datetime";
 
 // Type guard to ensure we really have FeedDetails
@@ -14,9 +15,11 @@ interface FeedCardProps {
   lastFeed?: RecentActivity;
   onClick?: () => void;
   onStopSession?: (sessionId: string) => Promise<void>;
+  onEditActivity?: (activity: RecentActivity) => void;
+  onDeleteActivity?: (activity: RecentActivity) => void;
 }
 
-export default function FeedCard({ activeSession, lastFeed, onClick, onStopSession }: FeedCardProps) {
+export default function FeedCard({ activeSession, lastFeed, onClick, onStopSession, onEditActivity, onDeleteActivity }: FeedCardProps) {
   const isActive = activeSession?.type === 'feed';
   
   const handleStopClick = async (e: React.MouseEvent) => {
@@ -86,9 +89,39 @@ export default function FeedCard({ activeSession, lastFeed, onClick, onStopSessi
         onClick={onClick}
       >
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-gray-800">
-            <span className="text-2xl">🍼</span>
-            <span className="text-lg font-bold">Last {feedType}</span>
+          <CardTitle className="flex items-center justify-between text-gray-800">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🍼</span>
+              <span className="text-lg font-bold">Last {feedType}</span>
+            </div>
+            <div className="flex gap-1">
+              {onEditActivity && (
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditActivity(lastFeed);
+                  }}
+                  size="sm"
+                  variant="outline"
+                  className="p-2 hover:bg-gray-50"
+                >
+                  <Edit className="w-4 h-4" />
+                </Button>
+              )}
+              {onDeleteActivity && (
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteActivity(lastFeed);
+                  }}
+                  size="sm"
+                  variant="outline"
+                  className="p-2 hover:bg-red-50 hover:text-red-600"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
