@@ -1,0 +1,1 @@
+ALTER TABLE "ai_interactions" ADD CONSTRAINT "valid_user_feedback" CHECK (user_feedback IN ('thumbs_up', 'thumbs_down', 'none'));

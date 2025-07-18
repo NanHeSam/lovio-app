@@ -132,7 +132,9 @@ export const aiInteractions = pgTable('ai_interactions', {
   langsmithTraceId: text('langsmith_trace_id'), // Link to LangSmith trace
   
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, () => [
+  check('valid_user_feedback', sql`user_feedback IN ('thumbs_up', 'thumbs_down', 'none')`),
+]);
 
 // ============================================================================
 // ACTIVITIES RELATIONS

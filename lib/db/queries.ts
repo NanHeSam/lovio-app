@@ -2,6 +2,7 @@ import { db } from './index';
 import { activities, children, users, userChildren, aiInteractions } from './schema';
 import { eq, and, isNull, desc, gte, lte, inArray } from 'drizzle-orm';
 import { formatTimeAgo } from '../utils/datetime';
+import { buildLangsmithTraceUrl } from '../utils';
 import type { 
   ActivityType, 
   ActivityDetails,
@@ -646,6 +647,6 @@ export async function getAIInteractionsWithTraceInfo(params: {
   return interactions.map(interaction => ({
     ...interaction,
     langsmithTraceId: interaction.id, // AI interaction ID = LangSmith run ID
-    langsmithTraceUrl: `https://smith.langchain.com/o/1f9974f3-eaef-438e-8369-60b3ead4a04f/projects/p/809e485d-c4ed-4cdd-98ed-a86f0b88cb77/r/${interaction.id}`,
+    langsmithTraceUrl: buildLangsmithTraceUrl(interaction.id),
   }));
 }

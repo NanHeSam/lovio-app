@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
 import { activities, children, users, aiInteractions, userChildren } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { buildLangsmithTraceUrl } from '@/lib/utils';
 
 /**
  * GET /api/activities/[childId]/[activityId]
@@ -80,7 +81,7 @@ export async function GET(
       createdByUser: result.createdByUser,
       aiInteraction: result.aiInteraction?.id ? result.aiInteraction : null,
       langsmithTraceUrl: result.aiInteraction?.id 
-        ? `https://smith.langchain.com/o/1f9974f3-eaef-438e-8369-60b3ead4a04f/projects/p/809e485d-c4ed-4cdd-98ed-a86f0b88cb77/r/${result.aiInteraction.id}`
+        ? buildLangsmithTraceUrl(result.aiInteraction.id)
         : null
     });
 

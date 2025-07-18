@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { aiInteractions, activities } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { Client } from 'langsmith';
+import { validateChildAccess } from '@/lib/db/queries';
+import { buildLangsmithTraceUrl } from '@/lib/utils';
 
 /**
  * POST /api/feedback
@@ -32,7 +34,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // First verify the activity exists and belongs to the user
+    // First verify the activity exists and check if user has access to the child
     const activity = await db
       .select({ 
         id: activities.id, 
@@ -49,10 +51,11 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
-    // Check if user has access to this activity
-    if (activity[0].createdBy !== userId) {
+    // Check if user has access to this child (supports collaborative childcare)
+    const hasAccess = await validateChildAccess(userId, activity[0].childId);
+    if (!hasAccess) {
       return NextResponse.json({ 
-        error: 'Access denied' 
+        error: 'Access denied: You do not have permission to access this child' 
       }, { status: 403 });
     }
 
@@ -110,7 +113,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: 'Feedback submitted successfully',
       feedbackId: updatedInteraction[0].id,
-      langsmithTraceUrl: `https://smith.langchain.com/o/1f9974f3-eaef-438e-8369-60b3ead4a04f/projects/p/809e485d-c4ed-4cdd-98ed-a86f0b88cb77/r/${langsmithTraceId}`
+      langsmithTraceUrl: buildLangsmithTraceUrl(langsmithTraceId)
     });
 
   } catch (error) {

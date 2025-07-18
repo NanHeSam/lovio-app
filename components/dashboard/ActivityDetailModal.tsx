@@ -42,14 +42,24 @@ export default function ActivityDetailModal({
   // Fetch activity details with AI interaction data
   useEffect(() => {
     if (isOpen && lastActivity && childId) {
-      fetch(`/api/activities/${childId}/${lastActivity.id}`)
+      const abortController = new AbortController();
+      
+      fetch(`/api/activities/${childId}/${lastActivity.id}`, {
+        signal: abortController.signal
+      })
         .then(res => res.json())
         .then(data => {
           setActivityWithAI(data);
         })
         .catch(error => {
-          console.error('Failed to fetch activity details:', error);
+          if (error.name !== 'AbortError') {
+            console.error('Failed to fetch activity details:', error);
+          }
         });
+      
+      return () => {
+        abortController.abort();
+      };
     }
   }, [isOpen, lastActivity, childId]);
 
@@ -89,7 +99,7 @@ export default function ActivityDetailModal({
         throw new Error('Failed to submit feedback');
       }
 
-      const result = await response.json();
+      await response.json();
       
       // Update local state to reflect the feedback
       setActivityWithAI(prev => prev ? {
