@@ -1034,3 +1034,71 @@ export async function cleanupExpiredInvitations(): Promise<number> {
 
   return updatedInvitations.length;
 }
+
+/**
+ * Reject an invitation
+ */
+export async function rejectInvitation(params: {
+  token: string;
+  rejectingUserId?: string;
+}): Promise<{ success: boolean; message: string }> {
+  const { token, rejectingUserId } = params;
+
+  // Find the invitation
+  const [invitation] = await db
+    .select()
+    .from(invitations)
+    .where(eq(invitations.token, token))
+    .limit(1);
+
+  if (!invitation) {
+    return { success: false, message: 'Invalid invitation token' };
+  }
+
+  // Check if invitation is still pending
+  if (invitation.status !== 'pending') {
+    return { success: false, message: 'This invitation has already been processed' };
+  }
+
+  // Check if invitation is expired
+  if (new Date() > invitation.expiresAt) {
+    // Mark as expired
+    await db
+      .update(invitations)
+      .set({ status: 'expired' })
+      .where(eq(invitations.id, invitation.id));
+    
+    return { success: false, message: 'This invitation has expired' };
+  }
+
+  // If rejectingUserId is provided, verify they have permission to reject
+  if (rejectingUserId) {
+    // Get user's email to verify they are the intended recipient
+    const [user] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, rejectingUserId))
+      .limit(1);
+
+    if (!user?.email) {
+      return { success: false, message: 'User not found' };
+    }
+
+    // Check if the user's email matches the invitation
+    if (user.email.toLowerCase() !== invitation.inviteeEmail.toLowerCase()) {
+      return { success: false, message: 'You are not authorized to reject this invitation' };
+    }
+  }
+
+  // Mark invitation as rejected
+  await db
+    .update(invitations)
+    .set({ 
+      status: 'rejected',
+      acceptedBy: rejectingUserId || null,
+      acceptedAt: new Date()
+    })
+    .where(eq(invitations.id, invitation.id));
+
+  return { success: true, message: 'Invitation declined successfully' };
+}
