@@ -218,6 +218,22 @@ export async function PUT(
 
     const { childId } = await params;
 
+    // Verify the user has access to this child
+    const userChild = await db
+      .select()
+      .from(userChildren)
+      .where(
+        and(
+          eq(userChildren.userId, userId),
+          eq(userChildren.childId, childId)
+        )
+      )
+      .limit(1);
+    
+    if (!userChild[0]) {
+      return NextResponse.json({ error: 'Access denied: Child not found or unauthorized' }, { status: 403 });
+    }
+
     // Verify the activity belongs to this child
     const activity = await db
       .select({ childId: activities.childId })
