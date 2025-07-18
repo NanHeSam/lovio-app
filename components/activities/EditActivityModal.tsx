@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Calendar, Clock, Save, Loader2 } from 'lucide-react';
+import { X, Save, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { toLocalDatetimeString } from '@/lib/utils/datetime';
 import type { ActivityType, ActivityDetails, FeedDetails, DiaperDetails } from '@/lib/db/types';
 
 interface Activity {
@@ -47,9 +49,9 @@ export default function EditActivityModal({
       
       setFormData({
         type: activity.type,
-        startTime: startTime.toISOString().slice(0, 16), // Format for datetime-local input
-        endTime: endTime ? endTime.toISOString().slice(0, 16) : '',
-        details: activity.details || {},
+        startTime: toLocalDatetimeString(startTime),
+        endTime: endTime ? toLocalDatetimeString(endTime) : '',
+        details: activity.details || ({} as ActivityDetails),
       });
     }
   }, [activity]);
@@ -101,7 +103,7 @@ export default function EditActivityModal({
 
   const renderDetailsFields = () => {
     switch (formData.type) {
-      case 'feed':
+      case 'feed': {
         const feedDetails = formData.details as FeedDetails;
         return (
           <div className="space-y-4">
@@ -169,8 +171,9 @@ export default function EditActivityModal({
             )}
           </div>
         );
+      }
         
-      case 'diaper':
+      case 'diaper': {
         const diaperDetails = formData.details as DiaperDetails;
         return (
           <div className="space-y-4">
@@ -233,17 +236,16 @@ export default function EditActivityModal({
             )}
             
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="hasRash"
                 checked={diaperDetails?.hasRash || false}
                 onChange={(e) => handleDetailChange('hasRash', e.target.checked)}
-                className="rounded border-gray-300"
               />
               <Label htmlFor="hasRash">Has Rash</Label>
             </div>
           </div>
         );
+      }
         
       default:
         return null;

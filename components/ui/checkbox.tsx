@@ -19,8 +19,8 @@ const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
           ref={ref}
           {...props}
         />
-        <Check className="absolute left-0 h-4 w-4 text-white opacity-0 peer-checked:opacity-100 pointer-events-none" />
         <div className="absolute left-0 h-4 w-4 bg-blue-600 rounded-sm opacity-0 peer-checked:opacity-100 pointer-events-none" />
+        <Check className="absolute left-0 h-4 w-4 text-white opacity-0 peer-checked:opacity-100 pointer-events-none" />
       </div>
     )
   }

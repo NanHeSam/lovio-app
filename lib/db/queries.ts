@@ -70,11 +70,12 @@ export async function startActivity(params: {
  */
 export async function updateActivity(params: {
   activityId: string;
+  userId?: string;
   startTime?: Date;
   endTime?: Date;
   details?: ActivityDetails;
 }) {
-  const { activityId, startTime, endTime, details } = params;
+  const { activityId, userId, startTime, endTime, details } = params;
   
   // Get the current activity to merge details
   const currentActivities = await db
@@ -88,6 +89,14 @@ export async function updateActivity(params: {
   }
   
   const currentActivity = currentActivities[0];
+  
+  // Check if user has access to this child (only if userId is provided)
+  if (userId) {
+    const hasAccess = await validateChildAccess(userId, currentActivity.childId);
+    if (!hasAccess) {
+      throw new Error('Access denied: You do not have permission to update this activity');
+    }
+  }
   
   // Check if trying to end an already ended activity
   if (endTime !== undefined && currentActivity.endTime) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { db, activities, children, userChildren } from '@/lib/db';
+import { db, activities, userChildren } from '@/lib/db';
 import { eq, and, desc, asc, count } from 'drizzle-orm';
 import { deleteActivity, deleteActivities, updateActivity } from '@/lib/db/queries';
 import type { ActivityType } from '@/lib/db/types';
@@ -41,10 +41,10 @@ export async function GET(
     }
 
     // Build query conditions
-    let whereConditions = eq(activities.childId, childId);
-    if (type) {
-      whereConditions = and(whereConditions, eq(activities.type, type));
-    }
+    const baseCondition = eq(activities.childId, childId);
+    const whereConditions = type 
+      ? and(baseCondition, eq(activities.type, type))
+      : baseCondition;
 
     // Get total count for pagination
     const [totalCount] = await db
@@ -53,7 +53,22 @@ export async function GET(
       .where(whereConditions);
 
     // Build sort condition
-    const sortColumn = activities[sortBy as keyof typeof activities] || activities.startTime;
+    const getSortColumn = () => {
+      switch (sortBy) {
+        case 'startTime':
+          return activities.startTime;
+        case 'endTime':
+          return activities.endTime;
+        case 'type':
+          return activities.type;
+        case 'createdAt':
+          return activities.createdAt;
+        default:
+          return activities.startTime;
+      }
+    };
+    
+    const sortColumn = getSortColumn();
     const sortDirection = sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
 
     // Get paginated activities
@@ -121,7 +136,20 @@ export async function DELETE(
       return NextResponse.json({ error: 'Activity ID(s) required' }, { status: 400 });
     }
 
+    const { childId } = await params;
+
     if (activityId) {
+      // Verify the activity belongs to this child
+      const activity = await db
+        .select({ childId: activities.childId })
+        .from(activities)
+        .where(eq(activities.id, activityId))
+        .limit(1);
+      
+      if (activity.length === 0 || activity[0].childId !== childId) {
+        return NextResponse.json({ error: 'Activity not found' }, { status: 404 });
+      }
+
       // Delete single activity
       const deletedActivity = await deleteActivity({
         activityId,
@@ -136,6 +164,20 @@ export async function DELETE(
     } else if (activityIds) {
       // Delete multiple activities
       const ids = activityIds.split(',').filter(id => id.trim());
+      
+      // Verify all activities belong to this child
+      const activitiesCheck = await db
+        .select({ id: activities.id, childId: activities.childId })
+        .from(activities)
+        .where(eq(activities.childId, childId));
+      
+      const validActivityIds = new Set(activitiesCheck.map(a => a.id));
+      const invalidIds = ids.filter(id => !validActivityIds.has(id));
+      
+      if (invalidIds.length > 0) {
+        return NextResponse.json({ error: 'Some activities not found or do not belong to this child' }, { status: 404 });
+      }
+
       const deletedActivities = await deleteActivities({
         activityIds: ids,
         userId,
@@ -174,11 +216,42 @@ export async function PUT(
       return NextResponse.json({ error: 'Activity ID required' }, { status: 400 });
     }
 
+    const { childId } = await params;
+
+    // Verify the activity belongs to this child
+    const activity = await db
+      .select({ childId: activities.childId })
+      .from(activities)
+      .where(eq(activities.id, activityId))
+      .limit(1);
+    
+    if (activity.length === 0 || activity[0].childId !== childId) {
+      return NextResponse.json({ error: 'Activity not found' }, { status: 404 });
+    }
+
+    // Parse and validate dates
+    const parsedStartTime = startTime ? (() => {
+      const date = new Date(startTime);
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid startTime format');
+      }
+      return date;
+    })() : undefined;
+
+    const parsedEndTime = endTime ? (() => {
+      const date = new Date(endTime);
+      if (isNaN(date.getTime())) {
+        throw new Error('Invalid endTime format');
+      }
+      return date;
+    })() : undefined;
+
     // Update activity
     const updatedActivity = await updateActivity({
       activityId,
-      startTime: startTime ? new Date(startTime) : undefined,
-      endTime: endTime ? new Date(endTime) : undefined,
+      userId,
+      startTime: parsedStartTime,
+      endTime: parsedEndTime,
       details: details || undefined,
     });
 

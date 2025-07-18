@@ -15,7 +15,6 @@ import {
   Baby,
   Edit,
   Trash2,
-  MoreVertical,
   AlertTriangle
 } from 'lucide-react';
 import EditActivityModal from './EditActivityModal';
@@ -183,9 +182,6 @@ export default function ActivitiesTable({ childId }: ActivitiesTableProps) {
           throw new Error(errorData.error || 'Failed to delete activities');
         }
         
-        // Remove deleted activities from state
-        setActivities(prev => prev.filter(a => !selectedActivities.has(a.id)));
-        setSelectedActivities(new Set());
         
       } else if (deleteConfirmation.activityId) {
         // Single delete
@@ -197,11 +193,11 @@ export default function ActivitiesTable({ childId }: ActivitiesTableProps) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Failed to delete activity');
         }
-        
-        // Remove deleted activity from state
-        setActivities(prev => prev.filter(a => a.id !== deleteConfirmation.activityId));
       }
       
+      // Refresh activities and pagination data
+      await fetchActivities();
+      setSelectedActivities(new Set());
       setDeleteConfirmation({ show: false });
     } catch (error) {
       console.error('Error deleting activities:', error);
