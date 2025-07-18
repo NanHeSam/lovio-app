@@ -79,6 +79,11 @@ Current Active Sessions: ${activeSessions.length > 0 ?
     });
     interactionId = interaction.id;
 
+    // Update the interaction with its own ID as the trace ID
+    await db.update(aiInteractions)
+      .set({ langsmithTraceId: interactionId })
+      .where(eq(aiInteractions.id, interactionId));
+
     // Shared configuration for both streaming and non-streaming calls
     const aiConfig = {
       model: openai('gpt-4.1'),

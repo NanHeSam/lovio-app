@@ -579,8 +579,9 @@ export async function logAIInteraction(params: {
   aiResponse?: string;
   activityId?: string;
   errorMessage?: string;
+  langsmithTraceId?: string;
 }) {
-  const { userId, childId, userInput, aiResponse, activityId, errorMessage } = params;
+  const { userId, childId, userInput, aiResponse, activityId, errorMessage, langsmithTraceId } = params;
   
   const [interaction] = await db.insert(aiInteractions).values({
     userId,
@@ -589,6 +590,7 @@ export async function logAIInteraction(params: {
     aiResponse: aiResponse || null,
     activityId: activityId || null,
     errorMessage: errorMessage || null,
+    langsmithTraceId: langsmithTraceId || null,
   }).returning();
   
   return interaction;
