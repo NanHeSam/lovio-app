@@ -79,6 +79,8 @@ Current Active Sessions: ${activeSessions.length > 0 ?
     });
     interactionId = interaction.id;
 
+    console.log(`Created AI interaction ${interactionId} with LangSmith trace ID: ${interactionId}`);
+
     // Shared configuration for both streaming and non-streaming calls
     const aiConfig = {
       model: openai('gpt-4.1'),
@@ -181,7 +183,7 @@ Current Active Sessions: ${activeSessions.length > 0 ?
       }),
 
       startActivity: tool({
-        description: 'Start a new activity session (sleep or feed)',
+        description: 'Start a new activity session (sleep or feed) - for feeding, always defaults to nursing',
         parameters: z.object({
           type: z.enum(['sleep', 'feed']).describe('Type of activity to start'),
           startTimeUTC: z.string().optional().describe('Start time in UTC ISO format from parseUserTime'),
@@ -194,11 +196,20 @@ Current Active Sessions: ${activeSessions.length > 0 ?
               return errorResult;
             }
 
+            // Build details for feeding sessions - always nursing for start activity
+            let details: ActivityDetails | undefined;
+            if (type === 'feed') {
+              details = {
+                type: 'nursing'
+              } as NursingDetails;
+            }
+
             const activity = await startActivity({
               childId,
               createdBy: userId,
               type,
-              ...(startTimeUTC && { startTime: new Date(startTimeUTC) })
+              ...(startTimeUTC && { startTime: new Date(startTimeUTC) }),
+              ...(details && { details })
             });
             
             // Associate this activity with the AI interaction
@@ -274,27 +285,21 @@ Current Active Sessions: ${activeSessions.length > 0 ?
             let details: ActivityDetails;
             
             if (type === 'feed') {
-              if (feedType === 'bottle' && volume) {
-                details = {
-                  type: 'bottle',
-                  volume,
-                  unit: unit || 'ml'
-                } as BottleDetails;
-              } else if (feedType === 'nursing') {
-                details = {
-                  type: 'nursing',
-                  ...(leftDuration && { leftDuration }),
-                  ...(rightDuration && { rightDuration }),
-                  ...(duration && { totalDuration: duration })
-                } as NursingDetails;
-              } else if (volume) {
+              // If volume is explicitly mentioned, use bottle feeding
+              if (volume) {
                 details = {
                   type: 'bottle',
                   volume,
                   unit: unit || 'ml'
                 } as BottleDetails;
               } else {
-                details = { type: 'nursing' } as NursingDetails;
+                // Default to nursing for all other feeding scenarios
+                details = {
+                  type: 'nursing',
+                  ...(leftDuration && { leftDuration }),
+                  ...(rightDuration && { rightDuration }),
+                  ...(duration && { totalDuration: duration })
+                } as NursingDetails;
               }
             } else if (type === 'diaper') {
               details = {
@@ -390,24 +395,20 @@ Current Active Sessions: ${activeSessions.length > 0 ?
             
             // Check if we have feed details
             if (feedType || volume || leftDuration || rightDuration) {
-              if (feedType === 'bottle' && volume) {
+              // If volume is explicitly mentioned, use bottle feeding
+              if (volume) {
                 details = {
                   type: 'bottle',
                   volume,
                   unit: unit || 'ml'
                 } as BottleDetails;
-              } else if (feedType === 'nursing') {
+              } else {
+                // Default to nursing for all other feeding scenarios
                 details = {
                   type: 'nursing',
                   ...(leftDuration && { leftDuration }),
                   ...(rightDuration && { rightDuration })
                 } as NursingDetails;
-              } else if (volume) {
-                details = {
-                  type: 'bottle',
-                  volume,
-                  unit: unit || 'ml'
-                } as BottleDetails;
               }
             }
             
@@ -449,19 +450,32 @@ STEP 1: Parse time if mentioned
 STEP 2: Choose smart action based on context and active sessions
 - Call parseUserTime with your calculated time in ISO format with timezone if time mentioned
 - Use the returned UTC time for subsequent logging actions
+- ALWAYS respond with times in user's local timezone, never UTC
+
 RECENT active same type (judge reasonableness):
 - "slept 2 hours" + recent sleep → updateActivity with calculated endTimeUTC
 - "finished eating" + recent feed → updateActivity with endTimeUTC (now)
-- "started sleeping" + recent sleep → offer to updateActivity with new start time
-- User confirms update → updateActivity with new startTimeUTC
+- "started sleeping" + recent sleep → if reasonable, update existing session; if not, create new one
 
-STALE active same type (use judgment):
-- "started sleeping" + old sleep → ask: "End old session first?"
-- "slept 2 hours" + old sleep → ask: "New entry or update old one?"
+STALE active same type (be permissive):
+- "started sleeping" + old sleep → create new sleep session (babies can have multiple sleep periods)
+- "slept 2 hours" + old sleep → create new completed sleep entry
+- Default to creating new activities rather than asking clarification
 
-DIFFERENT type active:
-- "sleeping" + active feed → ask: "End feeding to start sleep?"
-- "started eating" + active sleep → ask: "End sleep to start feeding?"
+CONCURRENT ACTIVITIES (allow overlap):
+- Sleep and feeding can happen simultaneously (babies often eat then sleep)
+- "sleeping" + active feed → create new sleep session without ending feed
+- "started eating" + active sleep → create new feed session without ending sleep
+- Be permissive and create activities as requested
+
+FEEDING TYPE LOGIC:
+- startActivity for feeding: ALWAYS nursing (no volume parameters)
+- logActivity with volume mentioned → bottle feeding (e.g., "drank 100ml", "had 4oz")
+- logActivity without volume → nursing (e.g., "fed for 20 minutes", "finished nursing")
+- Examples: 
+  * "start feeding" → startActivity (nursing)
+  * "baby drank 120ml" → logActivity (bottle)
+  * "fed for 20 minutes" → logActivity (nursing)
 
 DIAPER changes:
 - Always create new entries with logActivity, no conflicts
@@ -472,18 +486,19 @@ NO active sessions:
 - "X Y ago" → logActivity at past time
 - "is X-ing" → startActivity now
 
-UPDATE scenarios (replaces old endActivity tool):
-- When user wants to modify existing activity times or details
+UPDATE scenarios:
+- When user explicitly wants to modify existing activity times or details
 - Use updateActivity tool with activityId from active sessions
 - Can update startTime, endTime, or activity-specific details
 - To END activities: updateActivity with endTimeUTC parameter
 
 Key principles:
-- Use intelligent judgment for "recent" vs "stale" 
-- answer the question in very concise manner, 1-2 short sentences max. 
-- Smart updates over unnecessary conflicts
-- Ask clarification only for genuine ambiguity
-- Always confirm with local time context`,
+- BE PERMISSIVE: Create activities as requested, minimize clarification
+- Use intelligent judgment but favor action over asking
+- Answer in very concise manner, 1-2 short sentences max
+- ALWAYS format times in user's local timezone in responses
+- Only ask clarification for genuinely ambiguous time references
+- When in doubt, create the activity rather than asking`,
     };
 
     // Helper function to update AI interaction record
@@ -507,7 +522,7 @@ Key principles:
         .where(eq(aiInteractions.id, interactionId));
 
       if (associatedActivityId) {
-        console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId}${streaming ? ' and LangSmith trace' : ''}`);
+        console.log(`AI Interaction ${interactionId} linked to Activity ${associatedActivityId} and LangSmith trace ${interactionId}`);
       }
     }
 

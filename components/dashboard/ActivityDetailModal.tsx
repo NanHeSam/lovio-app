@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { X, Clock, Info } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { X, Clock, Info, ThumbsUp, ThumbsDown, MessageSquare, ExternalLink } from 'lucide-react';
 import { ActiveSession, RecentActivity, FeedDetails, DiaperDetails } from '@/lib/db/types';
+import { useToast } from '@/components/ui/toast';
 
 interface ActivityDetailModalProps {
   isOpen: boolean;
@@ -10,6 +11,19 @@ interface ActivityDetailModalProps {
   activityType: 'sleep' | 'feed' | 'diaper';
   activeSession?: ActiveSession;
   lastActivity?: RecentActivity;
+  childId?: string;
+}
+
+interface ActivityWithAI extends RecentActivity {
+  aiInteraction?: {
+    id: string;
+    userInput: string;
+    aiResponse: string;
+    userFeedback: string;
+    feedbackNote?: string;
+    langsmithTraceId?: string;
+  };
+  langsmithTraceUrl?: string;
 }
 
 export default function ActivityDetailModal({
@@ -17,9 +31,37 @@ export default function ActivityDetailModal({
   onClose,
   activityType,
   activeSession,
-  lastActivity
+  lastActivity,
+  childId
 }: ActivityDetailModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const { showToast } = useToast();
+  const [activityWithAI, setActivityWithAI] = useState<ActivityWithAI | null>(null);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
+  // Fetch activity details with AI interaction data
+  useEffect(() => {
+    if (isOpen && lastActivity && childId) {
+      const abortController = new AbortController();
+      
+      fetch(`/api/activities/${childId}/${lastActivity.id}`, {
+        signal: abortController.signal
+      })
+        .then(res => res.json())
+        .then(data => {
+          setActivityWithAI(data);
+        })
+        .catch(error => {
+          if (error.name !== 'AbortError') {
+            console.error('Failed to fetch activity details:', error);
+          }
+        });
+      
+      return () => {
+        abortController.abort();
+      };
+    }
+  }, [isOpen, lastActivity, childId]);
 
   // Handle Escape key and focus management
   useEffect(() => {
@@ -35,6 +77,51 @@ export default function ActivityDetailModal({
     
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
+
+  const submitFeedback = async (feedback: 'thumbs_up' | 'thumbs_down', note?: string) => {
+    if (!lastActivity) return;
+    
+    setIsSubmittingFeedback(true);
+    try {
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          activityId: lastActivity.id,
+          feedback,
+          note,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit feedback');
+      }
+
+      await response.json();
+      
+      // Update local state to reflect the feedback
+      setActivityWithAI(prev => prev ? {
+        ...prev,
+        aiInteraction: prev.aiInteraction ? {
+          ...prev.aiInteraction,
+          userFeedback: feedback,
+          feedbackNote: note
+        } : undefined
+      } : null);
+
+      showToast(
+        feedback === 'thumbs_up' ? 'Thanks for the positive feedback!' : 'Thanks for the feedback! This helps us improve.',
+        'success'
+      );
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      showToast('Failed to submit feedback', 'error');
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -322,6 +409,79 @@ export default function ActivityDetailModal({
     }
   };
 
+  const renderAIInteractionSection = () => {
+    if (!activityWithAI?.aiInteraction) return null;
+
+    const { aiInteraction } = activityWithAI;
+    const hasFeedback = aiInteraction.userFeedback && aiInteraction.userFeedback !== 'none';
+
+    return (
+      <div className="mt-6 pt-6 border-t border-gray-200">
+        <div className="flex items-center gap-2 mb-4">
+          <MessageSquare className="w-5 h-5 text-blue-600" />
+          <h4 className="font-medium text-gray-900">AI Interaction</h4>
+        </div>
+        
+        {/* User's Natural Language Query */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+          <div className="text-sm text-blue-600 mb-1">What you said:</div>
+          <div className="text-blue-800 font-medium">{aiInteraction.userInput}</div>
+        </div>
+
+        {/* AI Response */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
+          <div className="text-sm text-gray-600 mb-1">AI Response:</div>
+          <div className="text-gray-800">{aiInteraction.aiResponse}</div>
+        </div>
+
+        {/* Feedback Section */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            Was this activity recorded correctly?
+          </div>
+          
+          {hasFeedback ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">
+                {aiInteraction.userFeedback === 'thumbs_up' ? '👍 Good' : '👎 Needs improvement'}
+              </span>
+              {activityWithAI.langsmithTraceUrl && (
+                <a
+                  href={activityWithAI.langsmithTraceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  View Trace
+                </a>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => submitFeedback('thumbs_up')}
+                disabled={isSubmittingFeedback}
+                className="flex items-center gap-1 px-3 py-1 text-sm bg-green-100 text-green-700 rounded-md hover:bg-green-200 disabled:opacity-50"
+              >
+                <ThumbsUp className="w-4 h-4" />
+                Good
+              </button>
+              <button
+                onClick={() => submitFeedback('thumbs_down')}
+                disabled={isSubmittingFeedback}
+                className="flex items-center gap-1 px-3 py-1 text-sm bg-red-100 text-red-700 rounded-md hover:bg-red-200 disabled:opacity-50"
+              >
+                <ThumbsDown className="w-4 h-4" />
+                Needs Work
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderActivityDetails = () => {
     switch (activityType) {
       case 'sleep': return renderSleepDetails();
@@ -364,6 +524,7 @@ export default function ActivityDetailModal({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {renderActivityDetails()}
+          {renderAIInteractionSection()}
         </div>
 
         {/* Footer */}

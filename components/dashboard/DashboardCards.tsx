@@ -218,6 +218,7 @@ export default function DashboardCards({ childId }: DashboardCardsProps) {
             modalState.activityType === 'feed' ? lastFeed :
             lastDiaper
           }
+          childId={childId}
         />
       )}
 

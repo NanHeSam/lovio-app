@@ -2,6 +2,7 @@ import { db } from './index';
 import { activities, children, users, userChildren, aiInteractions } from './schema';
 import { eq, and, isNull, desc, gte, lte, inArray } from 'drizzle-orm';
 import { formatTimeAgo } from '../utils/datetime';
+import { buildLangsmithTraceUrl } from '../utils';
 import type { 
   ActivityType, 
   ActivityDetails,
@@ -646,6 +647,6 @@ export async function getAIInteractionsWithTraceInfo(params: {
   return interactions.map(interaction => ({
     ...interaction,
     langsmithTraceId: interaction.id, // AI interaction ID = LangSmith run ID
-    langsmithTraceUrl: `https://smith.langchain.com/o/YOUR_ORG_ID/p/lovio-app/r/${interaction.id}`, // Customize with actual org ID
+    langsmithTraceUrl: buildLangsmithTraceUrl(interaction.id),
   }));
 }
