@@ -16,10 +16,11 @@ interface FeedCardProps {
   onClick?: () => void;
   onStopSession?: (sessionId: string) => Promise<void>;
   onEditActivity?: (activity: RecentActivity) => void;
+  onEditActiveSession?: (activeSession: { id: string; type: any; startTime: Date; details: any }) => void;
   onDeleteActivity?: (activity: RecentActivity) => void;
 }
 
-export default function FeedCard({ activeSession, lastFeed, onClick, onStopSession, onEditActivity, onDeleteActivity }: FeedCardProps) {
+export default function FeedCard({ activeSession, lastFeed, onClick, onStopSession, onEditActivity, onEditActiveSession, onDeleteActivity }: FeedCardProps) {
   const isActive = activeSession?.type === 'feed';
   
   const handleStopClick = async (e: React.MouseEvent) => {
@@ -46,14 +47,29 @@ export default function FeedCard({ activeSession, lastFeed, onClick, onStopSessi
               <span className="text-2xl">🍼</span>
               <span className="text-lg font-bold">{feedType} - Active</span>
             </div>
-            <Button
-              onClick={handleStopClick}
-              size="sm"
-              variant="outline"
-              className="bg-white hover:bg-blue-50 border-blue-300 text-blue-700 hover:text-blue-800"
-            >
-              Stop
-            </Button>
+            <div className="flex gap-1">
+              {onEditActiveSession && (
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditActiveSession(activeSession);
+                  }}
+                  size="sm"
+                  variant="outline"
+                  className="p-2 bg-white hover:bg-blue-50 border-blue-300 text-blue-700 hover:text-blue-800"
+                >
+                  <Edit className="w-4 h-4" />
+                </Button>
+              )}
+              <Button
+                onClick={handleStopClick}
+                size="sm"
+                variant="outline"
+                className="bg-white hover:bg-blue-50 border-blue-300 text-blue-700 hover:text-blue-800"
+              >
+                Stop
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">

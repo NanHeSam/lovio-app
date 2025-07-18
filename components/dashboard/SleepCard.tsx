@@ -11,10 +11,11 @@ interface SleepCardProps {
   onClick?: () => void;
   onStopSession?: (sessionId: string) => Promise<void>;
   onEditActivity?: (activity: RecentActivity) => void;
+  onEditActiveSession?: (activeSession: { id: string; type: any; startTime: Date; details: any }) => void;
   onDeleteActivity?: (activity: RecentActivity) => void;
 }
 
-export default function SleepCard({ activeSession, lastSleep, onClick, onStopSession, onEditActivity, onDeleteActivity }: SleepCardProps) {
+export default function SleepCard({ activeSession, lastSleep, onClick, onStopSession, onEditActivity, onEditActiveSession, onDeleteActivity }: SleepCardProps) {
   const isActive = activeSession?.type === 'sleep';
   
   const handleStopClick = async (e: React.MouseEvent) => {
@@ -36,14 +37,29 @@ export default function SleepCard({ activeSession, lastSleep, onClick, onStopSes
               <span className="text-2xl">😴</span>
               <span className="text-lg font-bold">Sleep - Active</span>
             </div>
-            <Button
-              onClick={handleStopClick}
-              size="sm"
-              variant="outline"
-              className="bg-white hover:bg-purple-50 border-purple-300 text-purple-700 hover:text-purple-800"
-            >
-              Stop
-            </Button>
+            <div className="flex gap-1">
+              {onEditActiveSession && (
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditActiveSession(activeSession);
+                  }}
+                  size="sm"
+                  variant="outline"
+                  className="p-2 bg-white hover:bg-purple-50 border-purple-300 text-purple-700 hover:text-purple-800"
+                >
+                  <Edit className="w-4 h-4" />
+                </Button>
+              )}
+              <Button
+                onClick={handleStopClick}
+                size="sm"
+                variant="outline"
+                className="bg-white hover:bg-purple-50 border-purple-300 text-purple-700 hover:text-purple-800"
+              >
+                Stop
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">

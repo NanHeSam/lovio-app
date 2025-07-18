@@ -67,6 +67,19 @@ export default function DashboardCards({ childId }: DashboardCardsProps) {
     setEditModal({ isOpen: true, activity });
   };
 
+  const handleEditActiveSession = (activeSession: { id: string; type: ActivityType; startTime: Date; details: any }) => {
+    // Convert ActiveSession to Activity format for editing
+    const activity = {
+      id: activeSession.id,
+      type: activeSession.type,
+      startTime: activeSession.startTime.toISOString(),
+      endTime: null, // Active sessions don't have endTime
+      details: activeSession.details,
+      createdAt: new Date().toISOString(),
+    };
+    setEditModal({ isOpen: true, activity });
+  };
+
   const closeEditModal = () => {
     setEditModal({ isOpen: false, activity: null });
   };
@@ -171,6 +184,7 @@ export default function DashboardCards({ childId }: DashboardCardsProps) {
           onClick={() => openModal('sleep')}
           onStopSession={handleStopSession}
           onEditActivity={handleEditActivity}
+          onEditActiveSession={handleEditActiveSession}
           onDeleteActivity={handleDeleteActivity}
         />
         <FeedCard 
@@ -179,6 +193,7 @@ export default function DashboardCards({ childId }: DashboardCardsProps) {
           onClick={() => openModal('feed')}
           onStopSession={handleStopSession}
           onEditActivity={handleEditActivity}
+          onEditActiveSession={handleEditActiveSession}
           onDeleteActivity={handleDeleteActivity}
         />
         <DiaperCard 
