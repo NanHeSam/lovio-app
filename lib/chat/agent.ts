@@ -3,6 +3,7 @@ import { streamText, generateText, tool } from 'ai';
 import { z } from 'zod';
 import { AISDKExporter } from 'langsmith/vercel';
 import { Client } from 'langsmith';
+import { trace } from '@opentelemetry/api';
 import { 
   getActiveSessions, 
   getDailySummary, 
@@ -112,9 +113,14 @@ Current Active Sessions: ${activeSessions.length > 0 ?
 
     console.log(`Created AI interaction ${interactionId} with LangSmith trace ID: ${interactionId}`);
     
+    // Get OpenTelemetry tracer for AI SDK integration
+    const tracer = trace.getTracer('ai-sdk', '1.0.0');
+    console.log('OpenTelemetry tracer available:', !!tracer);
+    
     // Log telemetry settings for debugging
     const telemetrySettings = AISDKExporter.getSettings({
       runId: interactionId,
+      tracer: tracer, // Add explicit tracer
       metadata: {
         userId,
         childId,
