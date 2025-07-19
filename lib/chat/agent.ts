@@ -117,7 +117,7 @@ Current Active Sessions: ${activeSessions.length > 0 ?
     const tracer = trace.getTracer('ai-sdk', '1.0.0');
     console.log('OpenTelemetry tracer available:', !!tracer);
     
-    // Log telemetry settings for debugging
+    // Create telemetry settings for debugging (don't log the full object due to circular references)
     const telemetrySettings = AISDKExporter.getSettings({
       runId: interactionId,
       tracer: tracer, // Add explicit tracer
@@ -131,7 +131,7 @@ Current Active Sessions: ${activeSessions.length > 0 ?
         gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'unknown',
       }
     });
-    console.log('AISDKExporter telemetry settings:', JSON.stringify(telemetrySettings, null, 2));
+    console.log('AISDKExporter telemetry configured with runId:', interactionId, 'and tracer:', !!telemetrySettings.tracer);
 
     // Shared configuration for both streaming and non-streaming calls
     const aiConfig = {
