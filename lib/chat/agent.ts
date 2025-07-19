@@ -558,6 +558,9 @@ Key principles:
         console.error('Error updating AI interaction:', error);
       }
 
+      // Add delay to allow LangSmith traces to be sent before serverless function terminates
+      await new Promise(resolve => setTimeout(resolve, 200));
+
       return result;
     }
     
