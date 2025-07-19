@@ -19,12 +19,14 @@ import type { ActivityDetails, SleepDetails, DiaperDetails, BottleDetails, Nursi
 // Create LangSmith client and exporter for proper trace management in serverless environments
 // For optimal tracing in serverless environments, set these environment variables:
 // LANGSMITH_TRACING_BACKGROUND=false (disables background tracing)
-// LANGSMITH_API_KEY=your_api_key
+// LANGCHAIN_API_KEY=your_api_key (or LANGSMITH_API_KEY)
 // LANGCHAIN_TRACING_V2=true
 // LANGCHAIN_PROJECT=lovio-app
 const langsmithClient = new Client({
   // Force more frequent batching for serverless environments
   batchSizeBytesLimit: 1024, // Smaller batches for faster sending
+  // Explicitly set API key (tries both LANGCHAIN_API_KEY and LANGSMITH_API_KEY)
+  apiKey: process.env.LANGCHAIN_API_KEY || process.env.LANGSMITH_API_KEY,
 });
 
 // Create AISDKExporter instance to access forceFlush method
@@ -48,6 +50,7 @@ export async function processChatRequest(request: ChatRequest) {
   console.log('LangSmith Environment Check:', {
     LANGCHAIN_TRACING_V2: process.env.LANGCHAIN_TRACING_V2,
     LANGCHAIN_PROJECT: process.env.LANGCHAIN_PROJECT,
+    LANGCHAIN_API_KEY: process.env.LANGCHAIN_API_KEY ? '***configured***' : 'missing',
     LANGSMITH_API_KEY: process.env.LANGSMITH_API_KEY ? '***configured***' : 'missing',
     LANGSMITH_TRACING_BACKGROUND: process.env.LANGSMITH_TRACING_BACKGROUND,
   });
