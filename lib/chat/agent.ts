@@ -32,7 +32,8 @@ const langsmithClient = new Client({
 // Create AISDKExporter instance to access forceFlush method
 const aiSDKExporter = new AISDKExporter({
   client: langsmithClient,
-  debug: process.env.NODE_ENV !== 'production', // Enable debug in dev
+  debug: true, // Always enable debug to see what's happening
+  projectName: process.env.LANGCHAIN_PROJECT,
 });
 
 export interface ChatRequest {
@@ -109,24 +110,28 @@ Current Active Sessions: ${activeSessions.length > 0 ?
     interactionId = interaction.id;
 
     console.log(`Created AI interaction ${interactionId} with LangSmith trace ID: ${interactionId}`);
+    
+    // Log telemetry settings for debugging
+    const telemetrySettings = AISDKExporter.getSettings({
+      runId: interactionId,
+      metadata: {
+        userId,
+        childId,
+        userInput: userInput.substring(0, 100), // First 100 chars for context
+        environment: process.env.VERCEL_ENV || 'development', // preview, production, development
+        deployment: process.env.VERCEL_URL ? 'vercel' : 'local',
+        region: process.env.VERCEL_REGION || 'local',
+        gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'unknown',
+      }
+    });
+    console.log('AISDKExporter telemetry settings:', JSON.stringify(telemetrySettings, null, 2));
 
     // Shared configuration for both streaming and non-streaming calls
     const aiConfig = {
       model: openai('gpt-4.1'),
       messages: messagesWithContext,
       maxSteps: 5,
-      experimental_telemetry: AISDKExporter.getSettings({
-        runId: interactionId,
-        metadata: {
-          userId,
-          childId,
-          userInput: userInput.substring(0, 100), // First 100 chars for context
-          environment: process.env.VERCEL_ENV || 'development', // preview, production, development
-          deployment: process.env.VERCEL_URL ? 'vercel' : 'local',
-          region: process.env.VERCEL_REGION || 'local',
-          gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'unknown',
-        }
-      }),
+      experimental_telemetry: telemetrySettings,
     tools: {
       parseUserTime: tool({
         description: 'Convert AI-determined time to UTC for database storage. Call this when user mentions any time reference.',
@@ -597,8 +602,14 @@ Key principles:
 
       // Ensure all LangSmith traces are flushed before serverless function terminates
       try {
+        console.log('Starting AISDKExporter forceFlush (non-streaming)...');
         await aiSDKExporter.forceFlush();
         console.log('LangSmith AISDKExporter forceFlush completed (non-streaming)');
+        
+        // Also try client flush as backup
+        console.log('Starting LangSmith client awaitPendingTraceBatches...');
+        await langsmithClient.awaitPendingTraceBatches();
+        console.log('LangSmith client awaitPendingTraceBatches completed');
       } catch (error) {
         console.error('Error force flushing LangSmith exporter (non-streaming):', error);
         // Fallback delay if flushing fails
