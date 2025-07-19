@@ -16,7 +16,7 @@ import { db, activities, aiInteractions } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import type { ActivityDetails, SleepDetails, DiaperDetails, BottleDetails, NursingDetails } from '@/lib/db/types';
 
-// Create LangSmith client for proper trace management in serverless environments
+// Create LangSmith client and exporter for proper trace management in serverless environments
 // For optimal tracing in serverless environments, set these environment variables:
 // LANGSMITH_TRACING_BACKGROUND=false (disables background tracing)
 // LANGSMITH_API_KEY=your_api_key
@@ -25,6 +25,12 @@ import type { ActivityDetails, SleepDetails, DiaperDetails, BottleDetails, Nursi
 const langsmithClient = new Client({
   // Force more frequent batching for serverless environments
   batchSizeBytesLimit: 1024, // Smaller batches for faster sending
+});
+
+// Create AISDKExporter instance to access forceFlush method
+const aiSDKExporter = new AISDKExporter({
+  client: langsmithClient,
+  debug: process.env.NODE_ENV !== 'production', // Enable debug in dev
 });
 
 export interface ChatRequest {
@@ -37,6 +43,14 @@ export interface ChatRequest {
 
 export async function processChatRequest(request: ChatRequest) {
   const { messages, userId, childId, deviceTime, streaming = true } = request;
+  
+  // Debug LangSmith configuration
+  console.log('LangSmith Environment Check:', {
+    LANGCHAIN_TRACING_V2: process.env.LANGCHAIN_TRACING_V2,
+    LANGCHAIN_PROJECT: process.env.LANGCHAIN_PROJECT,
+    LANGSMITH_API_KEY: process.env.LANGSMITH_API_KEY ? '***configured***' : 'missing',
+    LANGSMITH_TRACING_BACKGROUND: process.env.LANGSMITH_TRACING_BACKGROUND,
+  });
 
   // Get the user's input message (last message should be from user)
   const userMessage = messages[messages.length - 1];
@@ -552,10 +566,10 @@ Key principles:
           
           // Ensure all LangSmith traces are flushed for streaming mode
           try {
-            await langsmithClient.awaitPendingTraceBatches();
-            console.log('LangSmith traces flushed successfully (streaming)');
+            await aiSDKExporter.forceFlush();
+            console.log('LangSmith AISDKExporter forceFlush completed (streaming)');
           } catch (flushError) {
-            console.error('Error flushing LangSmith traces (streaming):', flushError);
+            console.error('Error force flushing LangSmith exporter (streaming):', flushError);
           }
         } catch (error) {
           console.error('Error updating AI interaction:', error);
@@ -580,10 +594,10 @@ Key principles:
 
       // Ensure all LangSmith traces are flushed before serverless function terminates
       try {
-        await langsmithClient.awaitPendingTraceBatches();
-        console.log('LangSmith traces flushed successfully');
+        await aiSDKExporter.forceFlush();
+        console.log('LangSmith AISDKExporter forceFlush completed (non-streaming)');
       } catch (error) {
-        console.error('Error flushing LangSmith traces:', error);
+        console.error('Error force flushing LangSmith exporter (non-streaming):', error);
         // Fallback delay if flushing fails
         await new Promise(resolve => setTimeout(resolve, 300));
       }
