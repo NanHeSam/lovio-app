@@ -29,7 +29,8 @@ const langsmithClient = new Client({
   apiKey: process.env.LANGCHAIN_API_KEY || process.env.LANGSMITH_API_KEY,
 });
 
-// Create AISDKExporter instance to access forceFlush method
+// Note: OpenTelemetry initialization is handled in instrumentation.ts
+// We only need the client here for manual flushing operations
 const aiSDKExporter = new AISDKExporter({
   client: langsmithClient,
   debug: true, // Always enable debug to see what's happening
