@@ -2,6 +2,7 @@ import { openai } from '@ai-sdk/openai';
 import { streamText, generateText, tool } from 'ai';
 import { z } from 'zod';
 import { AISDKExporter } from 'langsmith/vercel';
+import { Client } from 'langsmith';
 import { 
   getActiveSessions, 
   getDailySummary, 
@@ -14,6 +15,17 @@ import {
 import { db, activities, aiInteractions } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import type { ActivityDetails, SleepDetails, DiaperDetails, BottleDetails, NursingDetails } from '@/lib/db/types';
+
+// Create LangSmith client for proper trace management in serverless environments
+// For optimal tracing in serverless environments, set these environment variables:
+// LANGSMITH_TRACING_BACKGROUND=false (disables background tracing)
+// LANGSMITH_API_KEY=your_api_key
+// LANGCHAIN_TRACING_V2=true
+// LANGCHAIN_PROJECT=lovio-app
+const langsmithClient = new Client({
+  // Force more frequent batching for serverless environments
+  batchSizeBytesLimit: 1024, // Smaller batches for faster sending
+});
 
 export interface ChatRequest {
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
@@ -537,6 +549,14 @@ Key principles:
             const responseText = await result.text;
             await updateAiInteraction(interactionId, responseText, functionCalls, associatedActivityId);
           }
+          
+          // Ensure all LangSmith traces are flushed for streaming mode
+          try {
+            await langsmithClient.awaitPendingTraceBatches();
+            console.log('LangSmith traces flushed successfully (streaming)');
+          } catch (flushError) {
+            console.error('Error flushing LangSmith traces (streaming):', flushError);
+          }
         } catch (error) {
           console.error('Error updating AI interaction:', error);
         }
@@ -558,8 +578,15 @@ Key principles:
         console.error('Error updating AI interaction:', error);
       }
 
-      // Add delay to allow LangSmith traces to be sent before serverless function terminates
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Ensure all LangSmith traces are flushed before serverless function terminates
+      try {
+        await langsmithClient.awaitPendingTraceBatches();
+        console.log('LangSmith traces flushed successfully');
+      } catch (error) {
+        console.error('Error flushing LangSmith traces:', error);
+        // Fallback delay if flushing fails
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
 
       return result;
     }
