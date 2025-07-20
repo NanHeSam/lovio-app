@@ -2,7 +2,8 @@ import { openai } from '@ai-sdk/openai';
 import { streamText, generateText, tool } from 'ai';
 import { z } from 'zod';
 import { AISDKExporter } from 'langsmith/vercel';
-import { Client } from 'langsmith';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import * as Sentry from '@sentry/nextjs';
 import { trace } from '@opentelemetry/api';
 import { 
   getActiveSessions, 
@@ -17,26 +18,30 @@ import { db, activities, aiInteractions } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import type { ActivityDetails, SleepDetails, DiaperDetails, BottleDetails, NursingDetails } from '@/lib/db/types';
 
-// Create LangSmith client and exporter for proper trace management in serverless environments
-// For optimal tracing in serverless environments, set these environment variables:
-// LANGSMITH_TRACING_BACKGROUND=false (disables background tracing)
-// LANGCHAIN_API_KEY=your_api_key (or LANGSMITH_API_KEY)
-// LANGCHAIN_TRACING_V2=true
-// LANGCHAIN_PROJECT=lovio-app
-const langsmithClient = new Client({
-  // Force more frequent batching for serverless environments
-  batchSizeBytesLimit: 1024, // Smaller batches for faster sending
-  // Explicitly set API key (tries both LANGCHAIN_API_KEY and LANGSMITH_API_KEY)
-  apiKey: process.env.LANGCHAIN_API_KEY || process.env.LANGSMITH_API_KEY,
-});
-
-// Note: OpenTelemetry initialization is handled in instrumentation.ts
-// We only need the client here for manual flushing operations
-const aiSDKExporter = new AISDKExporter({
-  client: langsmithClient,
-  debug: true, // Always enable debug to see what's happening
-  projectName: process.env.LANGCHAIN_PROJECT,
-});
+// LangSmith + Sentry integration for automatic tracing
+// This attaches the LangSmith trace exporter to Sentry's OpenTelemetry instrumentation
+try {
+  const sentryClient = Sentry.getCurrentHub().getClient();
+  if (sentryClient?.traceProvider) {
+    console.log('Setting up LangSmith + Sentry integration...');
+    
+    const langsmithExporter = new AISDKExporter({
+      apiKey: process.env.LANGCHAIN_API_KEY,
+      projectName: process.env.LANGCHAIN_PROJECT || 'lovio-app-dev',
+      debug: true,
+    });
+    
+    sentryClient.traceProvider.addSpanProcessor(
+      new BatchSpanProcessor(langsmithExporter)
+    );
+    
+    console.log('✅ LangSmith + Sentry integration configured successfully');
+  } else {
+    console.log('⚠️ Sentry trace provider not available');
+  }
+} catch (error) {
+  console.error('❌ Failed to configure LangSmith + Sentry integration:', error);
+}
 
 export interface ChatRequest {
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
@@ -112,33 +117,27 @@ Current Active Sessions: ${activeSessions.length > 0 ?
     interactionId = interaction.id;
 
     console.log(`Created AI interaction ${interactionId} with LangSmith trace ID: ${interactionId}`);
-    
-    // Get OpenTelemetry tracer for AI SDK integration
-    const tracer = trace.getTracer('ai-sdk', '1.0.0');
-    console.log('OpenTelemetry tracer available:', !!tracer);
-    
-    // Create telemetry settings for debugging (don't log the full object due to circular references)
-    const telemetrySettings = AISDKExporter.getSettings({
-      runId: interactionId,
-      tracer: tracer, // Add explicit tracer
-      metadata: {
-        userId,
-        childId,
-        userInput: userInput.substring(0, 100), // First 100 chars for context
-        environment: process.env.VERCEL_ENV || 'development', // preview, production, development
-        deployment: process.env.VERCEL_URL ? 'vercel' : 'local',
-        region: process.env.VERCEL_REGION || 'local',
-        gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'unknown',
-      }
-    });
-    console.log('AISDKExporter telemetry configured with runId:', interactionId, 'and tracer:', !!telemetrySettings.tracer);
 
     // Shared configuration for both streaming and non-streaming calls
     const aiConfig = {
       model: openai('gpt-4.1'),
       messages: messagesWithContext,
       maxSteps: 5,
-      experimental_telemetry: telemetrySettings,
+      experimental_telemetry: {
+        isEnabled: true,
+        recordInputs: true,
+        recordOutputs: true,
+        functionId: interactionId,
+        metadata: {
+          userId,
+          childId,
+          userInput: userInput.substring(0, 100),
+          environment: process.env.VERCEL_ENV || 'development',
+          deployment: process.env.VERCEL_URL ? 'vercel' : 'local',
+          region: process.env.VERCEL_REGION || 'local',
+          gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 'unknown',
+        }
+      },
     tools: {
       parseUserTime: tool({
         description: 'Convert AI-determined time to UTC for database storage. Call this when user mentions any time reference.',
@@ -579,13 +578,8 @@ Key principles:
             await updateAiInteraction(interactionId, responseText, functionCalls, associatedActivityId);
           }
           
-          // Ensure all LangSmith traces are flushed for streaming mode
-          try {
-            await aiSDKExporter.forceFlush();
-            console.log('LangSmith AISDKExporter forceFlush completed (streaming)');
-          } catch (flushError) {
-            console.error('Error force flushing LangSmith exporter (streaming):', flushError);
-          }
+          // LangSmith traces are automatically handled by the wrapped model
+          console.log('LangSmith tracing handled automatically by wrapped model (streaming)');
         } catch (error) {
           console.error('Error updating AI interaction:', error);
         }
@@ -607,21 +601,8 @@ Key principles:
         console.error('Error updating AI interaction:', error);
       }
 
-      // Ensure all LangSmith traces are flushed before serverless function terminates
-      try {
-        console.log('Starting AISDKExporter forceFlush (non-streaming)...');
-        await aiSDKExporter.forceFlush();
-        console.log('LangSmith AISDKExporter forceFlush completed (non-streaming)');
-        
-        // Also try client flush as backup
-        console.log('Starting LangSmith client awaitPendingTraceBatches...');
-        await langsmithClient.awaitPendingTraceBatches();
-        console.log('LangSmith client awaitPendingTraceBatches completed');
-      } catch (error) {
-        console.error('Error force flushing LangSmith exporter (non-streaming):', error);
-        // Fallback delay if flushing fails
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
+      // LangSmith traces are automatically handled by the wrapped model
+      console.log('LangSmith tracing handled automatically by wrapped model');
 
       return result;
     }
